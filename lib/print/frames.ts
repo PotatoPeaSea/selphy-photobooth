@@ -404,13 +404,15 @@ function drawText(d: DrawCtx, panel: Panel) {
 /**
  * Optional event-strip extras drawn over the photos: die-cut stickers pinned
  * across the photo edges, tagline text down the side margin and brand
- * stars/dots scattered in the empty margins. Guests switch each one on at
+ * stars/dots scattered in the empty margins. Guests toggle each one at
  * review; with none on, the print is just the frame's band or column art.
  */
 export type AddOn = "stickers" | "tagline" | "confetti";
 export type AddOns = Record<AddOn, boolean>;
 
 export const NO_ADDONS: AddOns = { stickers: false, tagline: false, confetti: false };
+/** What each guest starts with; they can untick these at review. */
+export const DEFAULT_ADDONS: AddOns = { stickers: false, tagline: true, confetti: true };
 
 export const ADDONS: { id: AddOn; label: string }[] = [
   { id: "stickers", label: "Stickers" },
@@ -746,7 +748,7 @@ export interface RenderPrintOptions {
   photos: (CanvasImageSource & { width: number; height: number })[];
   /** 1 = full 300 DPI print; smaller for on-screen previews. */
   scale?: number;
-  /** Extras over the photos; all off by default. */
+  /** Extras over the photos; DEFAULT_ADDONS if omitted. */
   addons?: AddOns;
 }
 
@@ -759,7 +761,7 @@ export async function renderPrint({
   frame: frameId,
   photos,
   scale = 1,
-  addons = NO_ADDONS,
+  addons = DEFAULT_ADDONS,
 }: RenderPrintOptions): Promise<HTMLCanvasElement> {
   await preparePrintAssets();
   const layout = printLayout(mode);

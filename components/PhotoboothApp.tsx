@@ -8,7 +8,7 @@ import ScanScreen from "@/components/booth/ScanScreen";
 import ShootScreen from "@/components/booth/ShootScreen";
 import { useCamera, useIdle, usePrinter } from "@/components/booth/hooks";
 import {
-  NO_ADDONS,
+  DEFAULT_ADDONS,
   printToDataUrl,
   renderPrint,
   toPrinterDataUrl,
@@ -37,8 +37,8 @@ type Step =
 export default function PhotoboothApp() {
   const [step, setStep] = useState<Step>({ name: "scan" });
   const [frame, setFrame] = useState<FrameId>("stormy");
-  // Every guest starts from the plain frame; extras are opt-in per session.
-  const [addons, setAddons] = useState<AddOns>(NO_ADDONS);
+  // Every guest starts from the default extras (tagline + confetti).
+  const [addons, setAddons] = useState<AddOns>(DEFAULT_ADDONS);
   // Bumped on every reset so late async results from an old session are ignored.
   const session = useRef(0);
   const printing = useRef(false);
@@ -50,7 +50,7 @@ export default function PhotoboothApp() {
   const reset = useCallback(() => {
     session.current++;
     setFrame("stormy");
-    setAddons(NO_ADDONS);
+    setAddons(DEFAULT_ADDONS);
     setStep({ name: "scan" });
   }, []);
 
