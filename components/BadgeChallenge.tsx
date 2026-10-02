@@ -194,6 +194,14 @@ export default function BadgeChallenge({
           <p style={{ opacity: textOpacity }}>{subtext}</p>
         </div>
       </button>
+
+      <button
+        type="button"
+        className="relative z-10 mt-8 rounded-full border border-white/20 px-6 py-2.5 text-sm text-white/70 transition hover:border-white/40 hover:bg-white/5 hover:text-white"
+        onClick={onAdmitted}
+      >
+        Skip scan
+      </button>
     </div>
   );
 }
