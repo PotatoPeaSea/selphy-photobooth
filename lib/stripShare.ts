@@ -57,7 +57,8 @@ export async function createStripShareQr(
   const viewUrl = buildShareViewUrl(origin, imageUrl);
   return QRCode.toDataURL(viewUrl, {
     margin: 1,
-    width: 112,
+    width: 320,
     errorCorrectionLevel: "M",
+    color: { dark: "#101A21", light: "#FFFFFF" },
   });
 }

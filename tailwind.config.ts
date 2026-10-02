@@ -34,6 +34,10 @@ const config: Config = {
           "0%": { transform: "scale(0.94)", opacity: "0" },
           "100%": { transform: "scale(1)", opacity: "1" },
         },
+        slide: {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(300%)" },
+        },
         rise: {
           "0%": { transform: "translateY(8%)", opacity: "0" },
           "100%": { transform: "translateY(0)", opacity: "1" },
