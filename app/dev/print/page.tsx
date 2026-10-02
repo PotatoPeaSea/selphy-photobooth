@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { FRAMES, printToDataUrl, renderPrint } from "@/lib/print/frames";
+import { FRAMES, NO_ADDONS, printToDataUrl, renderPrint, type AddOns } from "@/lib/print/frames";
 import { PHOTO_ASPECT, SHOT_COUNT, type PrintMode } from "@/lib/print/layouts";
 
 const MODES: PrintMode[] = ["strip", "grid"];
+const ALL_ADDONS: AddOns = { stickers: true, tagline: true, confetti: true };
 const TONES = ["#7A8BA6", "#A88F7A", "#6F9C8A", "#9B7AA8"];
 
 /** Fake camera frame: tinted backdrop, a head-and-shoulders blob, and an "R" to catch mirroring. */
@@ -46,8 +47,10 @@ export default function PrintSheet() {
       for (const mode of MODES) {
         const photos = Array.from({ length: SHOT_COUNT }, (_, i) => fakePhoto(mode, i));
         for (const f of FRAMES) {
-          const canvas = await renderPrint({ mode, frame: f.id, photos });
-          out.push({ id: `${mode}-${f.id}`, url: printToDataUrl(canvas) });
+          for (const [suffix, addons] of [["plain", NO_ADDONS], ["extras", ALL_ADDONS]] as const) {
+            const canvas = await renderPrint({ mode, frame: f.id, photos, addons });
+            out.push({ id: `${mode}-${f.id}-${suffix}`, url: printToDataUrl(canvas) });
+          }
         }
       }
       if (!cancelled) setRenders(out);

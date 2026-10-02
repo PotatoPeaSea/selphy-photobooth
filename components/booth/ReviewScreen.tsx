@@ -2,12 +2,15 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BracketButton } from "@/components/brand/Brand";
-import { artSrc, FRAMES, renderPrint, type FrameId } from "@/lib/print/frames";
+import { ADDONS, artSrc, FRAMES, renderPrint, type AddOns, type FrameId } from "@/lib/print/frames";
 import type { PrintMode } from "@/lib/print/layouts";
 import type { PrinterStatus } from "./hooks";
 import { BoothScreen } from "./Scene";
 
 const PREVIEW_SCALE = 0.5;
+
+const previewKey = (frame: FrameId, addons: AddOns) =>
+  `${frame}:${ADDONS.map((a) => (addons[a.id] ? 1 : 0)).join("")}`;
 
 function PrinterChip({ status, onTap }: { status: PrinterStatus; onTap: () => void }) {
   const [dot, text] =
@@ -30,14 +33,17 @@ function PrinterChip({ status, onTap }: { status: PrinterStatus; onTap: () => vo
 }
 
 /**
- * The finished print, rendered with the chosen frame. Swap frames, print, or
- * retake all four. (Idle timeout is handled by the parent.)
+ * The finished print, rendered with the chosen frame and add-ons. Swap
+ * frames, toggle add-ons, print, or retake all four. (Idle timeout is
+ * handled by the parent.)
  */
 export default function ReviewScreen({
   mode,
   shots,
   frame,
   onFrame,
+  addons,
+  onAddons,
   printer,
   onPrinterTap,
   onPrint,
@@ -47,34 +53,48 @@ export default function ReviewScreen({
   shots: HTMLCanvasElement[];
   frame: FrameId;
   onFrame: (f: FrameId) => void;
+  addons: AddOns;
+  onAddons: (a: AddOns) => void;
   printer: PrinterStatus;
   onPrinterTap: () => void;
   onPrint: () => void;
   onRetake: () => void;
 }) {
-  const [previews, setPreviews] = useState<Partial<Record<FrameId, string>>>({});
-  const firstFrame = useRef(frame);
+  // Previews by frame + add-ons, kept for the whole review so toggling back is instant.
+  const [previews, setPreviews] = useState<Record<string, string>>({});
+  const done = useRef<Record<string, string>>({});
+  const shown = useRef<string | undefined>(undefined);
 
-  // Render the starting frame first, then the rest in the background so swaps are instant.
+  // Render the chosen frame first, then the other frames with the same
+  // add-ons in the background so swaps are instant.
+  const addonsKey = previewKey(frame, addons);
+  useEffect(() => {
+    done.current = {};
+    setPreviews({});
+  }, [mode, shots]);
   useEffect(() => {
     let cancelled = false;
-    const start = firstFrame.current;
-    const order = [start, ...FRAMES.map((f) => f.id).filter((id) => id !== start)];
-    setPreviews({});
+    const order = [frame, ...FRAMES.map((f) => f.id).filter((id) => id !== frame)];
     (async () => {
       for (const id of order) {
-        const canvas = await renderPrint({ mode, frame: id, photos: shots, scale: PREVIEW_SCALE });
+        const key = previewKey(id, addons);
+        if (done.current[key]) continue;
+        const canvas = await renderPrint({ mode, frame: id, photos: shots, scale: PREVIEW_SCALE, addons });
         if (cancelled) return;
-        const url = canvas.toDataURL("image/jpeg", 0.85);
-        setPreviews((p) => ({ ...p, [id]: url }));
+        done.current[key] = canvas.toDataURL("image/jpeg", 0.85);
+        setPreviews({ ...done.current });
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [mode, shots]);
+    // addonsKey stands in for `addons`, which is a fresh object on every toggle.
+  }, [mode, shots, addonsKey]);
 
-  const src = previews[frame];
+  const ready = previews[addonsKey];
+  // Keep the last print on screen while the next one renders.
+  if (ready) shown.current = ready;
+  const src = ready ?? shown.current;
   const landscape = mode === "grid";
 
   return (
@@ -86,7 +106,14 @@ export default function ReviewScreen({
         >
           {src ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img key={frame} src={src} alt="Your print" className="h-full w-full animate-pop object-cover" data-frame={frame} />
+            <img
+              key={frame}
+              src={src}
+              alt="Your print"
+              className="h-full w-full animate-pop object-cover"
+              data-frame={frame}
+              data-ready={!!ready}
+            />
           ) : (
             <div className="absolute inset-0 animate-pulse bg-sh-black/5" />
           )}
@@ -136,10 +163,42 @@ export default function ReviewScreen({
           })}
         </div>
 
+        <p className="mt-[0.7rem] text-[0.85rem] font-semibold uppercase tracking-[0.12em] text-sh-black/60">
+          Add extras
+        </p>
+        <div className="mt-[0.4rem] flex gap-[0.45rem]" role="group" aria-label="Extras">
+          {ADDONS.map((a) => {
+            const on = addons[a.id];
+            return (
+              <button
+                key={a.id}
+                type="button"
+                role="checkbox"
+                aria-checked={on}
+                data-addon={a.id}
+                onClick={() => onAddons({ ...addons, [a.id]: !on })}
+                className={`flex min-h-[2.75rem] flex-1 items-center justify-center gap-[0.5rem] rounded-[0.8rem] px-[0.6rem] text-[0.95rem] font-semibold transition-colors ${
+                  on ? "bg-sh-black text-sh-white" : "bg-sh-black/[0.06] text-sh-black"
+                }`}
+              >
+                <span
+                  className={`flex size-[1.1rem] shrink-0 items-center justify-center rounded-[0.3rem] text-[0.8rem] leading-none ${
+                    on ? "bg-sh-white text-sh-black" : "ring-2 ring-inset ring-sh-black/40"
+                  }`}
+                  aria-hidden
+                >
+                  {on ? "✓" : ""}
+                </span>
+                {a.label}
+              </button>
+            );
+          })}
+        </div>
+
         <div className="mt-auto flex flex-col gap-[0.7rem]">
           <PrinterChip status={printer} onTap={onPrinterTap} />
           <div className="flex gap-[0.75rem]">
-            <BracketButton size="lg" className="flex-1" onClick={onPrint} disabled={!src}>
+            <BracketButton size="lg" className="flex-1" onClick={onPrint} disabled={!ready}>
               Print
             </BracketButton>
             <BracketButton size="lg" variant="secondary" onClick={onRetake}>

@@ -400,10 +400,22 @@ function drawText(d: DrawCtx, panel: Panel) {
 // ---------------------------------------------------------------- decor
 
 /**
- * Event-strip extras drawn over the photos: die-cut stickers pinned across
- * the photo edges, a title across the first gap, tagline text down the side
- * margin and brand stars/dots scattered in the empty margins.
+ * Optional event-strip extras drawn over the photos: die-cut stickers pinned
+ * across the photo edges, tagline text down the side margin and brand
+ * stars/dots scattered in the empty margins. Guests switch each one on at
+ * review; with none on, the print is just the frame's band or column art.
  */
+export type AddOn = "stickers" | "tagline" | "confetti";
+export type AddOns = Record<AddOn, boolean>;
+
+export const NO_ADDONS: AddOns = { stickers: false, tagline: false, confetti: false };
+
+export const ADDONS: { id: AddOn; label: string }[] = [
+  { id: "stickers", label: "Stickers" },
+  { id: "tagline", label: "Tagline" },
+  { id: "confetti", label: "Confetti" },
+];
+
 type StickerArt =
   | { kind: "image"; name: ArtImage }
   | { kind: "star"; color: string }
@@ -423,7 +435,6 @@ interface Sticker {
 
 interface Decor {
   stickers: Sticker[];
-  title: { fill: string; stroke: string } | null;
   /** Colours for the scattered stars and dots. */
   confetti: string[];
 }
@@ -439,33 +450,30 @@ const code = (bg: string, fg: string): StickerArt => ({ kind: "code", bg, fg });
 const DECOR: Record<FrameId, Decor> = {
   stormy: {
     stickers: [pinA(starArt(BRAND.yellow)), pinB(image("otter-stormy-walk")), pinC(image("daisy-2"))],
-    title: { fill: BRAND.yellow, stroke: BRAND.black },
     confetti: [BRAND.yellow, BRAND.white, BRAND.orange],
   },
   sparky: {
     stickers: [pinA(code(BRAND.black, BRAND.orange)), pinB(image("otter-pink")), pinC(image("daisy-1"))],
-    title: { fill: BRAND.blue, stroke: BRAND.black },
     confetti: [BRAND.blue, BRAND.orange, BRAND.white],
   },
   orange: {
     stickers: [pinA(starArt(BRAND.blue)), pinB(image("otter-sparky-vr")), pinC(image("daisy-3"))],
-    title: { fill: BRAND.yellow, stroke: BRAND.black },
     confetti: [BRAND.yellow, BRAND.white, BRAND.blue],
   },
-  clean: { stickers: [], title: null, confetti: [BRAND.blue, BRAND.orange, BRAND.yellow] },
+  clean: {
+    stickers: [pinA(starArt(BRAND.orange)), pinB(image("otter-sparky")), pinC(image("daisy-2"))],
+    confetti: [BRAND.blue, BRAND.orange, BRAND.yellow],
+  },
   garden: {
     stickers: [pinA(image("daisy-4")), pinB(image("otter-pink")), pinC(image("otter-stormy"))],
-    title: { fill: BRAND.yellow, stroke: BRAND.black },
     confetti: [BRAND.yellow, BRAND.white],
   },
   crew: {
     stickers: [pinA(starArt(BRAND.yellow)), pinB(image("daisy-1")), pinC(code(BRAND.blue, BRAND.white))],
-    title: { fill: BRAND.orange, stroke: BRAND.black },
     confetti: [BRAND.blue, BRAND.orange, BRAND.yellow],
   },
   hacker: {
     stickers: [pinA(code(BRAND.blue, BRAND.black)), pinB(image("otter-stormy")), pinC(starArt(BRAND.orange))],
-    title: { fill: BRAND.orange, stroke: BRAND.black },
     confetti: [BRAND.blue, BRAND.orange],
   },
 };
@@ -477,7 +485,6 @@ export function frameImages(id: FrameId): ArtImage[] {
   return [...names];
 }
 
-const TITLE = "StormHacks 26’";
 const TAGLINE = ["West Canada’s Largest Hackathon", "Oct 3 + 4", "SFU Burnaby", "#StormHacks26"];
 
 /** Seeded PRNG so both strips (and every reprint) scatter identically. */
@@ -589,44 +596,31 @@ function drawSticker(d: DrawCtx, s: Sticker, panel: Panel, unit: number) {
   ctx.restore();
 }
 
-/** "StormHacks 26’" with a sticker-style outline, centred on (cx, cy). */
-function drawTitle(d: DrawCtx, cx: number, cy: number, maxW: number, colors: { fill: string; stroke: string }) {
+/**
+ * Tagline `segments` split by brand stars along a line of length `len`,
+ * centred at the origin; shrinks from `maxSize` until it fits.
+ */
+function drawSideText(d: DrawCtx, segments: string[], len: number, maxSize: number) {
   const { ctx } = d;
-  let size = 72;
-  ctx.font = `900 ${size}px ${d.display}`;
-  while (size > 24 && ctx.measureText(TITLE).width + size * 0.4 > maxW) {
-    size -= 1;
-    ctx.font = `900 ${size}px ${d.display}`;
-  }
-  ctx.save();
-  ctx.translate(cx, cy);
-  ctx.rotate((-3 * Math.PI) / 180);
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.lineJoin = "round";
-  ctx.strokeStyle = "#FFFFFF";
-  ctx.lineWidth = size * 0.36;
-  ctx.strokeText(TITLE, 0, 0);
-  ctx.strokeStyle = colors.stroke;
-  ctx.lineWidth = size * 0.18;
-  ctx.strokeText(TITLE, 0, 0);
-  ctx.fillStyle = colors.fill;
-  ctx.fillText(TITLE, 0, 0);
-  ctx.restore();
-}
-
-/** Tagline `segments` split by brand stars along a line of length `len`, centred at the origin. */
-function drawSideText(d: DrawCtx, segments: string[], len: number, size: number) {
-  const { ctx } = d;
-  ctx.font = `700 ${size}px ${d.body}`;
-  ctx.letterSpacing = `${size * 0.18}px`;
   const parts = segments.map((t) => t.toUpperCase());
-  const starH = size * 0.9;
-  const gap = size * 0.9;
-  const starW = shapeWidth(star, starH);
-  const widths = parts.map((p) => ctx.measureText(p).width);
-  const total = widths.reduce((a, b) => a + b, 0) + (parts.length - 1) * (starW + gap * 2);
-  if (total > len) return;
+  const measure = (size: number) => {
+    ctx.font = `700 ${size}px ${d.body}`;
+    ctx.letterSpacing = `${size * 0.18}px`;
+    const starH = size * 0.9;
+    const gap = size * 0.9;
+    const starW = shapeWidth(star, starH);
+    const widths = parts.map((p) => ctx.measureText(p).width);
+    const total = widths.reduce((a, b) => a + b, 0) + (parts.length - 1) * (starW + gap * 2);
+    return { starH, gap, starW, widths, total };
+  };
+  let size = maxSize;
+  let m = measure(size);
+  while (m.total > len && size > 12) m = measure(--size);
+  const { starH, gap, starW, widths, total } = m;
+  if (total > len) {
+    ctx.letterSpacing = "0px";
+    return;
+  }
   ctx.fillStyle = d.frame.fg;
   ctx.globalAlpha = 0.85;
   ctx.textBaseline = "middle";
@@ -670,9 +664,10 @@ function drawConfetti(d: DrawCtx, zone: Rect, count: number, seed: number) {
   }
 }
 
-/** Decor for one panel — drawn last, over the photos. */
-function drawDecor(d: DrawCtx, panel: Panel) {
+/** The add-ons that are on, for one panel — drawn last, over the photos. */
+function drawDecor(d: DrawCtx, panel: Panel, on: AddOns) {
   const { ctx } = d;
+  if (!on.stickers && !on.tagline && !on.confetti) return;
   const decor = DECOR[d.frame.id];
   const cells = panel.cells;
   const first = cells[0]!;
@@ -680,46 +675,45 @@ function drawDecor(d: DrawCtx, panel: Panel) {
   const b = panel.bounds;
 
   if (panel.brandSide === "bottom") {
-    // Tagline running down the right margin in two runs, leaving the
-    // second-gap sticker room; confetti down the left.
+    // Tagline running down the right margin (in two runs when stickers are
+    // on, leaving the second-gap sticker room); confetti down the left.
     const right = first.x + first.w;
     const midX = right + (b.x + b.w - right) / 2;
     const gapY = cells[1]!.y + cells[1]!.h;
-    const runs: [string[], number, number][] = [
-      [TAGLINE.slice(0, 1), first.y, gapY - first.h * 0.32],
-      [TAGLINE.slice(1), gapY + first.h * 0.32, last.y + last.h],
-    ];
-    for (const [segments, y0, y1] of runs) {
+    const runs: [string[], number, number][] = on.stickers
+      ? [
+          [TAGLINE.slice(0, 1), first.y, gapY - first.h * 0.32],
+          [TAGLINE.slice(1), gapY + first.h * 0.32, last.y + last.h],
+        ]
+      : [[TAGLINE, first.y, last.y + last.h]];
+    for (const [segments, y0, y1] of on.tagline ? runs : []) {
       ctx.save();
       ctx.translate(midX, (y0 + y1) / 2);
       ctx.rotate(Math.PI / 2);
       drawSideText(d, segments, y1 - y0, 17);
       ctx.restore();
     }
-    drawConfetti(d, { x: b.x + 6, y: first.y, w: first.x - b.x - 12, h: last.y + last.h - first.y }, 11, 26);
+    if (on.confetti)
+      drawConfetti(d, { x: b.x + 6, y: first.y, w: first.x - b.x - 12, h: last.y + last.h - first.y }, 11, 26);
   } else {
     // Tagline along the bottom margin, confetti down the left and across the top.
     const top = first.y;
     const right = cells[1]!.x + cells[1]!.w;
     const bottom = last.y + last.h;
-    ctx.save();
-    ctx.translate((first.x + 200 + right) / 2, (bottom + b.y + b.h) / 2);
-    drawSideText(d, TAGLINE, right - first.x - 200, 20);
-    ctx.restore();
-    drawConfetti(d, { x: b.x + 4, y: top, w: first.x - b.x - 8, h: bottom - top }, 9, 26);
-    drawConfetti(d, { x: first.x, y: 14, w: right - first.x, h: top - 28 }, 16, 3);
-  }
-
-  // Title across the gap under the first photo (the first row in the grid).
-  if (decor.title) {
-    const below = panel.brandSide === "bottom" ? cells[1]! : cells[2]!;
-    const span = panel.brandSide === "bottom" ? first.w : cells[1]!.x + cells[1]!.w - first.x;
-    const cy = (first.y + first.h + below.y) / 2;
-    drawTitle(d, first.x + span / 2, cy, panel.brandSide === "bottom" ? span * 0.92 : span * 0.5, decor.title);
+    if (on.tagline) {
+      ctx.save();
+      ctx.translate((first.x + 200 + right) / 2, (bottom + b.y + b.h) / 2);
+      drawSideText(d, TAGLINE, right - first.x - 200, 20);
+      ctx.restore();
+    }
+    if (on.confetti) {
+      drawConfetti(d, { x: b.x + 4, y: top, w: first.x - b.x - 8, h: bottom - top }, 9, 26);
+      drawConfetti(d, { x: first.x, y: 14, w: right - first.x, h: top - 28 }, 16, 3);
+    }
   }
 
   const unit = panel.brandSide === "bottom" ? first.h : first.h * 0.8;
-  for (const s of decor.stickers) drawSticker(d, s, panel, unit);
+  if (on.stickers) for (const s of decor.stickers) drawSticker(d, s, panel, unit);
 }
 
 function drawCutGuides(d: DrawCtx) {
@@ -747,6 +741,8 @@ export interface RenderPrintOptions {
   photos: (CanvasImageSource & { width: number; height: number })[];
   /** 1 = full 300 DPI print; smaller for on-screen previews. */
   scale?: number;
+  /** Extras over the photos; all off by default. */
+  addons?: AddOns;
 }
 
 /**
@@ -758,6 +754,7 @@ export async function renderPrint({
   frame: frameId,
   photos,
   scale = 1,
+  addons = NO_ADDONS,
 }: RenderPrintOptions): Promise<HTMLCanvasElement> {
   await preparePrintAssets();
   const layout = printLayout(mode);
@@ -797,7 +794,7 @@ export async function renderPrint({
       if (photo) drawPhoto(ctx, photo, cell, layout.radius);
     });
     drawText(d, panel);
-    drawDecor(d, panel);
+    drawDecor(d, panel, addons);
     ctx.restore();
   }
   drawCutGuides(d);

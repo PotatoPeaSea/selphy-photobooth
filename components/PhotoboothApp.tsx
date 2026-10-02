@@ -7,7 +7,14 @@ import ReviewScreen from "@/components/booth/ReviewScreen";
 import ScanScreen from "@/components/booth/ScanScreen";
 import ShootScreen from "@/components/booth/ShootScreen";
 import { useCamera, useIdle, usePrinter } from "@/components/booth/hooks";
-import { printToDataUrl, renderPrint, toPrinterDataUrl, type FrameId } from "@/lib/print/frames";
+import {
+  NO_ADDONS,
+  printToDataUrl,
+  renderPrint,
+  toPrinterDataUrl,
+  type AddOns,
+  type FrameId,
+} from "@/lib/print/frames";
 import type { PrintMode } from "@/lib/print/layouts";
 import { createStripShareQr } from "@/lib/stripShare";
 
@@ -30,6 +37,8 @@ type Step =
 export default function PhotoboothApp() {
   const [step, setStep] = useState<Step>({ name: "scan" });
   const [frame, setFrame] = useState<FrameId>("stormy");
+  // Every guest starts from the plain frame; extras are opt-in per session.
+  const [addons, setAddons] = useState<AddOns>(NO_ADDONS);
   // Bumped on every reset so late async results from an old session are ignored.
   const session = useRef(0);
   const printing = useRef(false);
@@ -41,6 +50,7 @@ export default function PhotoboothApp() {
   const reset = useCallback(() => {
     session.current++;
     setFrame("stormy");
+    setAddons(NO_ADDONS);
     setStep({ name: "scan" });
   }, []);
 
@@ -53,10 +63,11 @@ export default function PhotoboothApp() {
     printing.current = true;
     const id = session.current;
     const chosen = frame;
+    const extras = addons;
     let shareUrl: string;
     let printUrl: string;
     try {
-      const canvas = await renderPrint({ mode, frame: chosen, photos: shots });
+      const canvas = await renderPrint({ mode, frame: chosen, photos: shots, addons: extras });
       shareUrl = printToDataUrl(canvas); // upright, landscape for the grid
       printUrl = toPrinterDataUrl(canvas); // always portrait for the Selphy
     } finally {
@@ -100,6 +111,8 @@ export default function PhotoboothApp() {
           shots={step.shots}
           frame={frame}
           onFrame={setFrame}
+          addons={addons}
+          onAddons={setAddons}
           printer={printer.status}
           onPrinterTap={() => void printer.resume()}
           onPrint={() => void print(step.mode, step.shots)}
