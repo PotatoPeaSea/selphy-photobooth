@@ -16,6 +16,7 @@ import {
   type FrameId,
 } from "@/lib/print/frames";
 import type { PrintMode } from "@/lib/print/layouts";
+import { galleryBadge, type GalleryBadge, type NfcTap } from "@/lib/nfcChallenge";
 import { createStripShareQr } from "@/lib/stripShare";
 
 /** Screens that time out back to scan when nobody touches them. */
@@ -42,6 +43,8 @@ export default function PhotoboothApp() {
   // Bumped on every reset so late async results from an old session are ignored.
   const session = useRef(0);
   const printing = useRef(false);
+  // The guest's badge tap from Scan (null if they skipped), saved with their photos.
+  const badge = useRef<GalleryBadge | null>(null);
 
   const cameraOn = step.name === "mode" || step.name === "shoot" || step.name === "review";
   const camera = useCamera(cameraOn);
@@ -49,6 +52,7 @@ export default function PhotoboothApp() {
 
   const reset = useCallback(() => {
     session.current++;
+    badge.current = null;
     setFrame("stormy");
     setAddons(DEFAULT_ADDONS);
     setStep({ name: "scan" });
@@ -56,7 +60,10 @@ export default function PhotoboothApp() {
 
   useIdle(IDLE_MS, reset, step.name === "mode" || step.name === "shoot" || step.name === "review");
 
-  const admit = useCallback(() => setStep({ name: "mode" }), []);
+  const admit = useCallback((tap: NfcTap | null) => {
+    badge.current = tap ? galleryBadge(tap) : null;
+    setStep({ name: "mode" });
+  }, []);
 
   async function print(mode: PrintMode, shots: HTMLCanvasElement[], visibility: "public" | "private") {
     if (printing.current) return; // a second tap must not send a second job
@@ -79,7 +86,7 @@ export default function PhotoboothApp() {
     const patch = (p: Partial<Extract<Step, { name: "done" }>>) =>
       setStep((s) => (session.current === id && s.name === "done" ? { ...s, ...p } : s));
 
-    createStripShareQr(shareUrl, window.location.origin, visibility).then(
+    createStripShareQr(shareUrl, window.location.origin, visibility, badge.current).then(
       (qr) => patch({ share: { kind: "ready", qr } }),
       () => patch({ share: { kind: "failed" } })
     );

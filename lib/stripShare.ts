@@ -1,4 +1,5 @@
 import QRCode from "qrcode";
+import type { GalleryBadge } from "@/lib/nfcChallenge";
 
 const BLOB_HOST = ".public.blob.vercel-storage.com";
 
@@ -33,12 +34,13 @@ export function isAllowedShareUrl(url: string): boolean {
 /** `page` is set when the upload already has its own guest page (home gallery). */
 export async function uploadStripShare(
   imageDataUrl: string,
-  visibility: "public" | "private"
+  visibility: "public" | "private",
+  badge: GalleryBadge | null = null
 ): Promise<{ url: string; page?: string }> {
   const res = await fetch("/api/share", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ image: imageDataUrl, visibility }),
+    body: JSON.stringify({ image: imageDataUrl, visibility, badge }),
   });
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as { error?: string } | null;
@@ -55,9 +57,10 @@ export function buildShareViewUrl(origin: string, imageUrl: string): string {
 export async function createStripShareQr(
   imageDataUrl: string,
   origin: string,
-  visibility: "public" | "private" = "private"
+  visibility: "public" | "private" = "private",
+  badge: GalleryBadge | null = null
 ): Promise<string> {
-  const { url, page } = await uploadStripShare(imageDataUrl, visibility);
+  const { url, page } = await uploadStripShare(imageDataUrl, visibility, badge);
   const viewUrl = page ?? buildShareViewUrl(origin, url);
   return QRCode.toDataURL(viewUrl, {
     margin: 1,

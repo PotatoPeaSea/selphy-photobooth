@@ -17,10 +17,11 @@ function dataUrlToBuffer(dataUrl: string): { buffer: Buffer; contentType: string
  * `page` is a ready-made guest page (home gallery); otherwise `url` is a bare
  * image for the booth's own /view page. Order: home gallery, then Vercel
  * Blob, then this machine's disk, so the guest always gets a QR.
- * `visibility` ("public" lists it on the gallery) only applies to the gallery.
+ * `visibility` ("public" lists it on the gallery) and `badge` (the guest's NFC
+ * tap, stored with the photo for the admin panel) only apply to the gallery.
  */
 export async function POST(request: Request) {
-  let body: { image?: string; visibility?: string };
+  let body: { image?: string; visibility?: string; badge?: unknown };
   try {
     body = await request.json();
   } catch {
@@ -44,7 +45,10 @@ export async function POST(request: Request) {
   if (hasGalleryConfig()) {
     try {
       const visibility: Visibility = body.visibility === "public" ? "public" : "private";
-      const page = await uploadToGallery(parsed.buffer, parsed.contentType, ext, visibility);
+      // The gallery validates the badge fields; send it on only if it's an object.
+      const badge =
+        body.badge && typeof body.badge === "object" && !Array.isArray(body.badge) ? body.badge : null;
+      const page = await uploadToGallery(parsed.buffer, parsed.contentType, ext, visibility, badge);
       return NextResponse.json({ url: page, page });
     } catch (err) {
       console.error("Gallery upload failed, falling back:", err);

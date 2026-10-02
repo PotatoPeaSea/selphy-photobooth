@@ -1,8 +1,9 @@
 # Gallery API (home server)
 
-The booth's QR codes point at the photobooth gallery on homeserver. This
-file covers how the booth uses it, then reproduces the gallery's API
-reference.
+The booth's QR codes point at the photobooth gallery on homeserver. Manage
+photos and keys in its admin panel at http://homeserver:8000/admin (tailnet
+only). This file covers how the booth uses the gallery, then reproduces
+the gallery's API reference.
 
 The source of truth is `~/photobooth/API.md` on homeserver. Update the
 copy below when that changes.
@@ -10,11 +11,12 @@ copy below when that changes.
 ## How the booth uses it
 
 ```
+Scan: badge tap (or Skip Scan)  → PhotoboothApp keeps galleryBadge(tap) for the session
 Review: guest taps Print, answers "Share it with Everyone?"
   └─ PhotoboothApp.print(mode, shots, visibility)
        ├─ printer.print(...)                      → /api/print (Selphy)
-       └─ createStripShareQr(jpeg, origin, visibility)    lib/stripShare.ts
-            └─ POST /api/share { image, visibility }      app/api/share/route.ts
+       └─ createStripShareQr(jpeg, origin, visibility, badge)   lib/stripShare.ts
+            └─ POST /api/share { image, visibility, badge }      app/api/share/route.ts
                  1. gallery: POST {GALLERY_UPLOAD_URL}/api/photos    lib/galleryClient.ts
                  2. else Vercel Blob (BLOB_READ_WRITE_TOKEN)
                  3. else this machine's disk (/api/share/file/<name>)
@@ -28,6 +30,14 @@ Request JSON:
 |---|---|
 | `image` | `data:image/jpeg;base64,…`: the upright print (landscape for the grid) |
 | `visibility` | `public` or `private` (default). Only the gallery uses it. |
+| `badge` | the guest's badge tap in the gallery's `badge` format, or `null` if they skipped the scan. Only the gallery stores it. |
+
+`galleryBadge()` in `lib/nfcChallenge.ts` maps the badge station's tap
+(`tagUid`, `portalUserId`, `user.firstName/lastName/displayId`, `status`,
+`at`, `pointsAwarded`) to the gallery fields. The badge is cleared when the
+session resets, so every photo from that guest (retakes included) gets their
+tap and the next guest starts clean. Badge data appears only in the gallery's
+admin panel, never on the guest's page.
 
 Response JSON:
 
@@ -67,7 +77,7 @@ On the server, PLAN.md is the original design and README.md covers running it.
 | URL | Reachable from | Use |
 |---|---|---|
 | `https://gallery.example.ts.net:8443` | the internet (Tailscale Funnel) | guests, and booth uploads with an upload key |
-| `http://homeserver:8000` | the tailnet only | admin calls with the admin key |
+| `http://homeserver:8000` | the tailnet only | admin calls with the admin key, and the [admin panel](#admin-panel-admin) |
 
 Requests that come in through Funnel carry a `Tailscale-Funnel-Request`
 header, added by tailscaled. The app uses it to tell the two routes apart; a
@@ -105,6 +115,7 @@ Every API error has this shape:
 |---|---|---|
 | 400 | `invalid_image` | not a real JPEG or PNG |
 | 400 | `invalid_request` | missing or malformed field |
+| 400 | `invalid_badge` | `badge` isn't a JSON object of the right types, or is over 4 KB |
 | 401 | `unauthorized` | missing, wrong, expired or revoked key, or an upload key on an admin-only write over the tailnet |
 | 403 | `forbidden` | any admin-only write (`PATCH`, `DELETE`, or an upload with the admin key) through Funnel, whatever the key |
 | 404 | `not_found` | unknown or expired photo, bad media name |
@@ -152,6 +163,22 @@ Returned by upload, get and patch. Times are unix seconds.
 |---|---|---|
 | `file` | yes | JPEG or PNG, up to 15 MB and 60 MP |
 | `visibility` | no | `public` or `private` (default) |
+| `badge` | no | JSON object: the guest's NFC badge tap (below) |
+
+`badge` fields, all optional; unknown keys are ignored:
+
+| Key | Type | Stored as |
+|---|---|---|
+| `tag_uid` | string (≤64) | `badge_uid` |
+| `user_id` | integer | `badge_user_id`, the portal user id |
+| `display_id` | string (≤64) | `badge_display_id` |
+| `name` | string (≤128) | `badge_name` |
+| `status` | string (≤32) | `badge_status`, e.g. `checked_in`, `already_checked_in` |
+| `tapped_at` | unix seconds or ISO 8601 | `badge_tapped_at` (unix seconds) |
+| `points` | integer | `badge_points` |
+
+Badge data is **never** in public responses (the photo object and `/p/` pages).
+Only the admin panel shows it.
 
 The server checks that the file is a real image, applies the EXIF rotation,
 then re-encodes it. This drops all metadata, including GPS. It stores
@@ -208,10 +235,50 @@ Removes the row and the files. `204`.
 | `GET /media/{id}/web.jpg`, `thumb.jpg` | Images, cached for a year |
 | `GET /media/{id}/original.jpg` | Full-size download (`Content-Disposition: attachment`) |
 | `GET /robots.txt` | Disallows `/p/`, `/media/` and `/api/` |
+| `GET /admin` | Admin panel, tailnet only (see below) |
 
 `/p/` and `/media/` send `X-Robots-Tag: noindex, nofollow`. Every response
 sets a strict CSP, `X-Frame-Options: DENY`, `nosniff` and `no-referrer`.
 The docs/OpenAPI endpoints are turned off.
+
+### Admin panel (`/admin`)
+
+`http://homeserver:8000/admin` lists every photo, public and private, with
+its badge tap. From there you can make photos public or private, delete them
+one at a time or in bulk, search by name, display ID, badge UID or photo ID,
+and create or revoke upload keys.
+
+**Login is being on the tailnet.** A request is let in when all of these hold:
+
+- it didn't come through Funnel (no `Tailscale-Funnel-Request` header);
+- its client IP is a Tailscale address (`100.64.0.0/10` or
+  `fd7a:115c:a1e0::/48`), taken from the last `X-Forwarded-For` entry that
+  `tailscale serve` appends;
+- the `Host` is a MagicDNS short name, a `*.ts.net` name or a Tailscale IP,
+  which blocks DNS rebinding.
+
+Anything else gets `404`, so the panel doesn't exist from the internet. The
+page shows the `Tailscale-User-Login` that `tailscale serve` adds. Anyone on
+your tailnet can use it, so check your Tailscale access rules if you share
+the tailnet.
+
+#### Admin JSON API
+
+Same tailnet check, plus the request must send `X-Admin-Request: 1` (`403`
+otherwise), and `Origin`, if present, must match `Host`. The custom header
+forces a CORS preflight that the app never approves. That stops another
+website from driving these endpoints through an admin's browser.
+
+| Method & path | Body | Returns |
+|---|---|---|
+| `GET /admin/api/photos` | query: `limit` (≤200, default 48), `before`, `before_id`, `visibility`, `key` (key id or `admin`), `q` | `{items, next_before, next_before_id}`; items are photo objects plus `width`, `height`, `bytes_original`, `key_id`, `key_label`, `badge` |
+| `PATCH /admin/api/photos/{id}` | `{"visibility": "public"}` | `{id, visibility}` |
+| `POST /admin/api/photos/visibility` | `{"ids": [...], "visibility": "private"}` (≤500 ids) | `{changed}` |
+| `POST /admin/api/photos/delete` | `{"ids": [...]}` (≤500 ids) | `{deleted}` |
+| `GET /admin/api/keys` | | `{items: [{id, label, state, created_at, expires_at, uploads}]}` |
+| `POST /admin/api/keys` | `{"label": "booth-1", "days": 3}` (0–30 days) | `201 {id, label, expires_at, key}`; the key is shown only here |
+| `POST /admin/api/keys/{id}/revoke` | | `{id, state}` |
+| `GET /admin/api/stats` | | counts (`total`, `public`, `private`, `with_badge`), `bytes_original`, `disk_free`, `disk_total`, `who` |
 
 ### Settings (`.env`)
 

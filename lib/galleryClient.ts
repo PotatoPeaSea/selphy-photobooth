@@ -27,13 +27,15 @@ export async function uploadToGallery(
   buffer: Buffer,
   contentType: string,
   ext: string,
-  visibility: Visibility
+  visibility: Visibility,
+  badge: object | null = null
 ): Promise<string> {
   const config = galleryConfig();
   if (!config) throw new Error("Gallery not configured");
   const form = new FormData();
   form.append("file", new Blob([new Uint8Array(buffer)], { type: contentType }), `strip.${ext}`);
   form.append("visibility", visibility);
+  if (badge) form.append("badge", JSON.stringify(badge));
   const res = await fetch(`${config.base}/api/photos`, {
     method: "POST",
     headers: { Authorization: `Bearer ${config.key}` },

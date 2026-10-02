@@ -44,13 +44,16 @@ function resultCopy(popup: TapPopup): { headline: string; subtext: string } {
 }
 
 /** Attract screen: badge check-in (NFC polling) or skip straight to the booth. */
-export default function ScanScreen({ onAdmitted }: { onAdmitted: () => void }) {
+/** `onAdmitted` gets the badge tap that let the guest in, or null if they skipped the scan. */
+export default function ScanScreen({ onAdmitted }: { onAdmitted: (tap: NfcTap | null) => void }) {
   const [link, setLink] = useState<LinkState>("unknown");
   const [health, setHealth] = useState<NfcHealth | null>(null);
   const [popup, setPopup] = useState<TapPopup | null>(null);
   const [copy, setCopy] = useState(() => idleCopy("unknown", null, false));
   const [visible, setVisible] = useState(true);
   const fadeTimer = useRef<number | null>(null);
+  // The raw tap behind `popup`, handed on so it's saved with the photos.
+  const tapRef = useRef<NfcTap | null>(null);
   const [taps, setTaps] = useState(0);
 
   // Warm the cache so a tap swaps otters without a blank frame.
@@ -91,7 +94,10 @@ export default function ScanScreen({ onAdmitted }: { onAdmitted: () => void }) {
         if (!at || at === seenAt) return;
         seenAt = at;
         const next = classifyTap(data.last);
-        if (next) setPopup(next);
+        if (next) {
+          tapRef.current = data.last ?? null;
+          setPopup(next);
+        }
       } catch {
         if (!stopped) setLink("offline");
       } finally {
@@ -130,7 +136,7 @@ export default function ScanScreen({ onAdmitted }: { onAdmitted: () => void }) {
     const id =
       popup.kind === "notice"
         ? window.setTimeout(() => setPopup(null), NOTICE_MS)
-        : window.setTimeout(onAdmitted, ADMIT_MS);
+        : window.setTimeout(() => onAdmitted(tapRef.current), ADMIT_MS);
     return () => window.clearTimeout(id);
   }, [popup, onAdmitted]);
 
@@ -142,7 +148,7 @@ export default function ScanScreen({ onAdmitted }: { onAdmitted: () => void }) {
       grain
       className="bg-sh-blue text-sh-white"
       onClick={() => {
-        if (admitted) onAdmitted();
+        if (admitted) onAdmitted(tapRef.current);
       }}
     >
       <Tagline className="absolute left-[1.5rem] top-[1.25rem] text-[0.8rem]" />
@@ -184,7 +190,7 @@ export default function ScanScreen({ onAdmitted }: { onAdmitted: () => void }) {
           className="mt-[1.25rem]"
           onClick={(e) => {
             e.stopPropagation();
-            onAdmitted();
+            onAdmitted(admitted ? tapRef.current : null);
           }}
         >
           {admitted ? "Let’s Go" : "Skip Scan"}

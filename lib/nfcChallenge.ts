@@ -5,7 +5,10 @@ export type NfcTap = {
   at?: string;
   message?: string | null;
   pointsAwarded?: number | null;
+  tagUid?: string | null;
+  portalUserId?: number | null;
   user?: {
+    id?: number | null;
     firstName?: string | null;
     lastName?: string | null;
     displayId?: string | null;
@@ -28,6 +31,30 @@ export type TapPopup =
   | { kind: "first"; id: string; name: string | null; points: number }
   | { kind: "repeat"; id: string; name: string | null }
   | { kind: "notice"; id: string; message: string };
+
+/** The badge fields the gallery stores with a photo (its `badge` upload field). */
+export type GalleryBadge = {
+  tag_uid: string | null;
+  user_id: number | null;
+  display_id: string | null;
+  name: string | null;
+  status: string | null;
+  tapped_at: string | null;
+  points: number | null;
+};
+
+export function galleryBadge(tap: NfcTap): GalleryBadge {
+  const name = [tap.user?.firstName, tap.user?.lastName].filter(Boolean).join(" ").trim();
+  return {
+    tag_uid: tap.tagUid ?? null,
+    user_id: tap.portalUserId ?? tap.user?.id ?? null,
+    display_id: tap.user?.displayId ?? null,
+    name: name || null,
+    status: tap.status ?? null,
+    tapped_at: tap.at ?? null,
+    points: tap.pointsAwarded ?? null,
+  };
+}
 
 export function hackerName(
   user: NfcTap["user"] | null | undefined
