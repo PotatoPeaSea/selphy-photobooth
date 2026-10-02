@@ -74,9 +74,9 @@ function stripPanel(x0: number): Panel {
 
 const GRID_W = PRINTER_H; // landscape
 const GRID_H = PRINTER_W;
-const GRID_MARGIN = 40;
+const GRID_MARGIN = 28;
 const GRID_GAP = 18;
-const GRID_COLUMN = 400;
+const GRID_COLUMN = 290;
 
 function gridPanel(): Panel {
   const gridW = GRID_W - GRID_MARGIN - GRID_COLUMN;

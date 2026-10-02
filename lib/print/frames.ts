@@ -355,8 +355,9 @@ function placeArt(d: DrawCtx, art: Art, box: Rect, sheetBottom: number, overflow
 const STRIP_TEXT_W = 236;
 const COLUMN_PAD = 28;
 const COLUMN_TEXT = { logo: 54, date: 30 };
+const COLUMN_OVERFLOW = 0.42;
 
-/** Frame artwork for one panel — drawn before the photos. */
+/** Frame artwork for one panel — behind the photos in strips, over them in the grid. */
 function drawArt(d: DrawCtx, panel: Panel) {
   const art = artFor(d);
   if (!art) return;
@@ -368,11 +369,12 @@ function drawArt(d: DrawCtx, panel: Panel) {
     placeArt(d, art, { x, y: b.y + 8, w: panel.bounds.x + panel.bounds.w - x, h: b.h - 8 }, bottom);
     return;
   }
-  // Column: art rises from the bottom edge under the logo block.
+  // Column: art rises from the bottom edge under the logo block. The column
+  // is narrow, so the art is drawn over the photos and may lap their edge.
   const textBottom = b.y + 6 + COLUMN_TEXT.logo + COLUMN_TEXT.date * 1.6;
   const top = textBottom + 36;
   if (d.frame.id === "garden") img(d, "bush-1", b.x - 160, bottom - 120, 150);
-  placeArt(d, art, { x: b.x, y: top, w: b.w, h: bottom - top }, bottom, 0.42, -0.02);
+  placeArt(d, art, { x: b.x, y: top, w: b.w, h: bottom - top }, bottom, COLUMN_OVERFLOW, -0.06);
 }
 
 /** Logo + date for one panel — drawn after the photos. */
@@ -702,8 +704,11 @@ function drawDecor(d: DrawCtx, panel: Panel, on: AddOns) {
     const bottom = last.y + last.h;
     if (on.tagline) {
       ctx.save();
-      ctx.translate((first.x + 200 + right) / 2, (bottom + b.y + b.h) / 2);
-      drawSideText(d, TAGLINE, right - first.x - 200, 20);
+      // Clear of the corner sticker on the left and the column art on the right.
+      const x0 = first.x + 270;
+      const x1 = right - 260;
+      ctx.translate((x0 + x1) / 2, (bottom + b.y + b.h) / 2);
+      drawSideText(d, TAGLINE, x1 - x0, Math.min(20, (b.y + b.h - bottom) * 0.45));
       ctx.restore();
     }
     if (on.confetti) {
@@ -788,11 +793,13 @@ export async function renderPrint({
     ctx.beginPath();
     ctx.rect(panel.bounds.x, panel.bounds.y, panel.bounds.w, panel.bounds.h);
     ctx.clip();
-    drawArt(d, panel);
+    const artOnTop = panel.brandSide === "right";
+    if (!artOnTop) drawArt(d, panel);
     panel.cells.forEach((cell, i) => {
       const photo = photos[i];
       if (photo) drawPhoto(ctx, photo, cell, layout.radius);
     });
+    if (artOnTop) drawArt(d, panel);
     drawText(d, panel);
     drawDecor(d, panel, addons);
     ctx.restore();
