@@ -13,6 +13,8 @@ import { BoothScreen, OtterScene } from "./Scene";
 const NOTICE_MS = 8000;
 const ADMIT_MS = 2400;
 const POLL_MS = 400;
+/** Tapping the otter cycles through the crew. */
+const OTTERS = ["otter-pink", "otter-sparky", "otter-stormy", "otter-sparky-vr", "otter-stormy-walk"];
 
 type LinkState = "unknown" | "online" | "offline";
 
@@ -49,6 +51,12 @@ export default function ScanScreen({ onAdmitted }: { onAdmitted: () => void }) {
   const [copy, setCopy] = useState(() => idleCopy("unknown", null, false));
   const [visible, setVisible] = useState(true);
   const fadeTimer = useRef<number | null>(null);
+  const [taps, setTaps] = useState(0);
+
+  // Warm the cache so a tap swaps otters without a blank frame.
+  useEffect(() => {
+    for (const name of OTTERS) new Image().src = `/brand/${name}.png`;
+  }, []);
 
   // Poll the badge station; the first response only primes "last seen".
   useEffect(() => {
@@ -142,9 +150,11 @@ export default function ScanScreen({ onAdmitted }: { onAdmitted: () => void }) {
       <div className="absolute bottom-0 right-[1rem] top-[2.5rem] w-[27rem]">
         <OtterScene
           key={admitted ? "yay" : "idle"}
-          otter="otter-pink"
+          otter={OTTERS[taps % OTTERS.length]!}
           frame="brackets"
           className={admitted ? "animate-rise" : ""}
+          onTap={() => setTaps((t) => t + 1)}
+          tapCount={taps}
         />
       </div>
 

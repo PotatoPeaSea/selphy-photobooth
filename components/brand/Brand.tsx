@@ -55,10 +55,12 @@ export function Otter({
   name,
   className,
   style,
+  onPointerDown,
 }: {
   name: OtterName;
   className?: string;
   style?: CSSProperties;
+  onPointerDown?: React.PointerEventHandler<HTMLImageElement>;
 }) {
   // eslint-disable-next-line @next/next/no-img-element
   return (
@@ -68,6 +70,7 @@ export function Otter({
       draggable={false}
       className={className}
       style={style}
+      onPointerDown={onPointerDown}
     />
   );
 }
