@@ -5,20 +5,38 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        booth: { bg: "#0c0a0f", accent: "#ff3366", glow: "#ffd166" },
+        // StormHacks 2026 primary palette (design/design.md §1)
+        sh: {
+          blue: "#0278FF", // Stormy Blue
+          orange: "#FF5D0B", // Orange Orange
+          yellow: "#F9B200", // Sparky Yellow
+          white: "#ECECEF", // Hurricane White
+          black: "#101A21", // Shady Black
+          muted: "#DBDBE2",
+          grey: "#6F7E98",
+        },
       },
       fontFamily: {
-        display: ["Georgia", "Times New Roman", "serif"],
+        display: ["var(--font-display)", "Georgia", "serif"],
+        body: ["var(--font-body)", "system-ui", "sans-serif"],
+      },
+      borderRadius: {
+        card: "1rem",
       },
       animation: {
-        flash: "flash 0.35s ease-out",
-        countdown: "countdown 0.9s ease-in-out",
+        flash: "flash 0.35s ease-out forwards",
+        countdown: "countdown 0.9s ease-out",
         pop: "pop 0.35s ease-out",
+        rise: "rise 0.5s ease-out both",
       },
       keyframes: {
         pop: {
           "0%": { transform: "scale(0.94)", opacity: "0" },
           "100%": { transform: "scale(1)", opacity: "1" },
+        },
+        rise: {
+          "0%": { transform: "translateY(8%)", opacity: "0" },
+          "100%": { transform: "translateY(0)", opacity: "1" },
         },
         flash: {
           "0%": { opacity: "0.95" },
@@ -26,8 +44,8 @@ const config: Config = {
         },
         countdown: {
           "0%": { transform: "scale(0.6)", opacity: "0" },
-          "40%": { transform: "scale(1.1)", opacity: "1" },
-          "100%": { transform: "scale(1)", opacity: "0.85" },
+          "30%": { transform: "scale(1.08)", opacity: "1" },
+          "100%": { transform: "scale(1)", opacity: "1" },
         },
       },
     },

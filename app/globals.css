@@ -3,7 +3,16 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
+}
+
+/*
+ * The booth is sized in rem against the screen: 16px at 1024×600 (generic 7")
+ * and 20px at 1280×800 (Waveshare 8"), so one layout fits both. Other pages
+ * (the /view page on guests' phones) keep the normal 16px.
+ */
+html:has(.booth-root) {
+  font-size: min(100vh / 37.5, 100vw / 64);
 }
 
 html,
@@ -12,54 +21,33 @@ body {
 }
 
 body {
-  @apply bg-booth-bg text-white antialiased;
+  @apply bg-sh-white font-body text-sh-black antialiased;
   margin: 0;
 }
 
-/* Otter scan frame — same treatment as the time-games badge reader. */
-.otter-frame {
-  border: 1px solid rgba(82, 82, 82, 0.3);
-  border-radius: 12px;
-  padding: 4px;
-  display: inline-block;
-  line-height: 0;
+@layer components {
+  /* GrainFut overlay from the brand posts: one static tile, 40% overlay. */
+  .grain {
+    @apply pointer-events-none absolute inset-0;
+    background-image: url("/brand/grain.png");
+    background-size: 192px 192px;
+    mix-blend-mode: overlay;
+    opacity: 0.4;
+  }
+
+  /* Exposure-style display type (Big Blocks / Titles / CTA). */
+  .type-display {
+    @apply font-display;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.01em;
+  }
 }
 
-.otter-card {
-  width: min(64vh, 78vw);
-  aspect-ratio: 1;
-  border-radius: 8px;
-  background: none;
-  display: block;
-}
-
-.otter-text {
-  margin-top: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  align-items: center;
-  text-align: center;
-  max-width: min(90vw, 440px);
-  font-family: Inter, -apple-system, "Helvetica Neue", Arial, sans-serif;
-}
-
-.otter-text h2 {
-  margin: 0;
-  font-weight: 600;
-  font-size: 28px;
-  line-height: 125%;
-  letter-spacing: -0.01em;
-  color: #ededed;
-  transition: opacity 180ms ease;
-}
-
-.otter-text p {
-  margin: 0;
-  font-weight: 400;
-  font-size: 14px;
-  line-height: 150%;
-  letter-spacing: -0.0075em;
-  color: #8f8f8f;
-  transition: opacity 180ms ease;
+@layer utilities {
+  .touch-none-select {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
 }

@@ -1,5 +1,6 @@
 node_modules
 .next
+.next-*
 out
 .env*.local
 .data
@@ -12,3 +13,4 @@ out
 /design/svg/dynamic-loops-post-*.svg
 /design/svg/illustration-*.svg
 /design/svg/portraits-*.svg
+*.tsbuildinfo
