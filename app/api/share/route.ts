@@ -1,5 +1,5 @@
 import { hasBlobCredentials, uploadPublicBlob } from "@/lib/blobClient";
-import { hasGalleryConfig, uploadToGallery } from "@/lib/galleryClient";
+import { hasGalleryConfig, uploadToGallery, type Visibility } from "@/lib/galleryClient";
 import { saveLocalStrip } from "@/lib/localShareStore";
 import { NextResponse } from "next/server";
 
@@ -17,9 +17,10 @@ function dataUrlToBuffer(dataUrl: string): { buffer: Buffer; contentType: string
  * `page` is a ready-made guest page (home gallery); otherwise `url` is a bare
  * image for the booth's own /view page. Order: home gallery, then Vercel
  * Blob, then this machine's disk, so the guest always gets a QR.
+ * `visibility` ("public" lists it on the gallery) only applies to the gallery.
  */
 export async function POST(request: Request) {
-  let body: { image?: string };
+  let body: { image?: string; visibility?: string };
   try {
     body = await request.json();
   } catch {
@@ -42,7 +43,8 @@ export async function POST(request: Request) {
 
   if (hasGalleryConfig()) {
     try {
-      const page = await uploadToGallery(parsed.buffer, parsed.contentType, ext);
+      const visibility: Visibility = body.visibility === "public" ? "public" : "private";
+      const page = await uploadToGallery(parsed.buffer, parsed.contentType, ext, visibility);
       return NextResponse.json({ url: page, page });
     } catch (err) {
       console.error("Gallery upload failed, falling back:", err);

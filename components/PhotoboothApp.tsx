@@ -58,7 +58,7 @@ export default function PhotoboothApp() {
 
   const admit = useCallback(() => setStep({ name: "mode" }), []);
 
-  async function print(mode: PrintMode, shots: HTMLCanvasElement[]) {
+  async function print(mode: PrintMode, shots: HTMLCanvasElement[], visibility: "public" | "private") {
     if (printing.current) return; // a second tap must not send a second job
     printing.current = true;
     const id = session.current;
@@ -79,7 +79,7 @@ export default function PhotoboothApp() {
     const patch = (p: Partial<Extract<Step, { name: "done" }>>) =>
       setStep((s) => (session.current === id && s.name === "done" ? { ...s, ...p } : s));
 
-    createStripShareQr(shareUrl, window.location.origin).then(
+    createStripShareQr(shareUrl, window.location.origin, visibility).then(
       (qr) => patch({ share: { kind: "ready", qr } }),
       () => patch({ share: { kind: "failed" } })
     );
@@ -115,7 +115,7 @@ export default function PhotoboothApp() {
           onAddons={setAddons}
           printer={printer.status}
           onPrinterTap={() => void printer.resume()}
-          onPrint={() => void print(step.mode, step.shots)}
+          onPrint={(visibility) => void print(step.mode, step.shots, visibility)}
           onRetake={() => setStep({ name: "shoot", mode: step.mode })}
         />
       );

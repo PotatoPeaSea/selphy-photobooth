@@ -31,11 +31,14 @@ export function isAllowedShareUrl(url: string): boolean {
 }
 
 /** `page` is set when the upload already has its own guest page (home gallery). */
-export async function uploadStripShare(imageDataUrl: string): Promise<{ url: string; page?: string }> {
+export async function uploadStripShare(
+  imageDataUrl: string,
+  visibility: "public" | "private"
+): Promise<{ url: string; page?: string }> {
   const res = await fetch("/api/share", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ image: imageDataUrl }),
+    body: JSON.stringify({ image: imageDataUrl, visibility }),
   });
   if (!res.ok) {
     const body = (await res.json().catch(() => null)) as { error?: string } | null;
@@ -51,9 +54,10 @@ export function buildShareViewUrl(origin: string, imageUrl: string): string {
 
 export async function createStripShareQr(
   imageDataUrl: string,
-  origin: string
+  origin: string,
+  visibility: "public" | "private" = "private"
 ): Promise<string> {
-  const { url, page } = await uploadStripShare(imageDataUrl);
+  const { url, page } = await uploadStripShare(imageDataUrl, visibility);
   const viewUrl = page ?? buildShareViewUrl(origin, url);
   return QRCode.toDataURL(viewUrl, {
     margin: 1,

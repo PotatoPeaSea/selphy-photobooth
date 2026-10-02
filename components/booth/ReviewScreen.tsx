@@ -32,6 +32,53 @@ function PrinterChip({ status, onTap }: { status: PrinterStatus; onTap: () => vo
   );
 }
 
+/** Asked on Print: may the photos go on the public photobooth site? */
+function PublicPrompt({
+  onAnswer,
+  onCancel,
+}: {
+  onAnswer: (visibility: "public" | "private") => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div
+      className="absolute inset-0 z-10 flex animate-pop items-center justify-center bg-sh-black/60 p-[1.5rem]"
+      onClick={onCancel}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="public-prompt-title"
+        data-testid="public-prompt"
+        className="w-[36rem] max-w-full rounded-card bg-sh-white p-[1.75rem] text-sh-black"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 id="public-prompt-title">
+          <span className="block text-[1.5rem] font-normal leading-none tracking-[-0.02em]">Share it with</span>
+          <span className="type-display block text-[2.6rem]">Everyone?</span>
+        </h2>
+        <p className="mt-[0.8rem] text-[1.05rem] font-medium leading-snug text-sh-black/75">
+          Put your photos on the public StormHacks photobooth site, where anyone can see them. Either way,
+          you’ll get a QR code to save them.
+        </p>
+        <div className="mt-[1.4rem] flex gap-[0.75rem]">
+          <BracketButton className="flex-1" data-visibility="public" onClick={() => onAnswer("public")}>
+            Yes, Share
+          </BracketButton>
+          <BracketButton
+            className="flex-1"
+            variant="secondary"
+            data-visibility="private"
+            onClick={() => onAnswer("private")}
+          >
+            Keep Private
+          </BracketButton>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /**
  * The finished print, rendered with the chosen frame and add-ons. Swap
  * frames, toggle add-ons, print, or retake all four. (Idle timeout is
@@ -57,7 +104,8 @@ export default function ReviewScreen({
   onAddons: (a: AddOns) => void;
   printer: PrinterStatus;
   onPrinterTap: () => void;
-  onPrint: () => void;
+  /** Called once the guest has answered the public-gallery prompt. */
+  onPrint: (visibility: "public" | "private") => void;
   onRetake: () => void;
 }) {
   // Previews by frame + add-ons, kept for the whole review so toggling back is instant.
@@ -90,6 +138,9 @@ export default function ReviewScreen({
     };
     // addonsKey stands in for `addons`, which is a fresh object on every toggle.
   }, [mode, shots, addonsKey]);
+
+  // Print first asks whether the photos may go on the public gallery.
+  const [asking, setAsking] = useState(false);
 
   const ready = previews[addonsKey];
   // Keep the last print on screen while the next one renders.
@@ -198,7 +249,7 @@ export default function ReviewScreen({
         <div className="mt-auto flex flex-col gap-[0.7rem]">
           <PrinterChip status={printer} onTap={onPrinterTap} />
           <div className="flex gap-[0.75rem]">
-            <BracketButton size="lg" className="flex-1" onClick={onPrint} disabled={!ready}>
+            <BracketButton size="lg" className="flex-1" onClick={() => setAsking(true)} disabled={!ready}>
               Print
             </BracketButton>
             <BracketButton size="lg" variant="secondary" onClick={onRetake}>
@@ -207,6 +258,16 @@ export default function ReviewScreen({
           </div>
         </div>
       </section>
+
+      {asking && (
+        <PublicPrompt
+          onAnswer={(visibility) => {
+            setAsking(false);
+            onPrint(visibility);
+          }}
+          onCancel={() => setAsking(false)}
+        />
+      )}
     </BoothScreen>
   );
 }

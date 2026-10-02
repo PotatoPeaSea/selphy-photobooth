@@ -1,8 +1,11 @@
 /**
  * Home-server photo gallery on homeserver (see ~/photobooth/README.md there).
- * The booth uploads over the tailnet; the response's `url` is the public
- * Funnel page (https://gallery.example.ts.net:8443/p/<id>) for the QR.
+ * The booth uploads to the public Funnel URL with an upload-only key that
+ * expires after 3 days (`scripts/upload-key.sh create <booth>` on the server).
+ * The response's `url` is the photo's public page, /p/<id>, for the QR.
  */
+
+export type Visibility = "public" | "private";
 
 const UPLOAD_TIMEOUT_MS = 15_000;
 
@@ -16,13 +19,21 @@ export function hasGalleryConfig(): boolean {
   return galleryConfig() !== null;
 }
 
-/** Upload as an unlisted ("private") photo; returns the guest-facing page URL. */
-export async function uploadToGallery(buffer: Buffer, contentType: string, ext: string): Promise<string> {
+/**
+ * Upload the guest's copy; "public" also lists it on the gallery's front page,
+ * "private" is link-only. Returns the guest-facing page URL.
+ */
+export async function uploadToGallery(
+  buffer: Buffer,
+  contentType: string,
+  ext: string,
+  visibility: Visibility
+): Promise<string> {
   const config = galleryConfig();
   if (!config) throw new Error("Gallery not configured");
   const form = new FormData();
   form.append("file", new Blob([new Uint8Array(buffer)], { type: contentType }), `strip.${ext}`);
-  form.append("visibility", "private");
+  form.append("visibility", visibility);
   const res = await fetch(`${config.base}/api/photos`, {
     method: "POST",
     headers: { Authorization: `Bearer ${config.key}` },
