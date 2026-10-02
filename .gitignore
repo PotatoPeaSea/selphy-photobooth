@@ -4,3 +4,11 @@ out
 .env*.local
 .data
 /.env
+
+# Large Figma SVG exports (2–58 MB each). Kept on disk as extraction sources;
+# design/examples/ has PNG twins and public/brand/ has the pieces cut from them.
+/design/svg/applications-open-post.svg
+/design/svg/code-matrices-post.svg
+/design/svg/dynamic-loops-post-*.svg
+/design/svg/illustration-*.svg
+/design/svg/portraits-*.svg
