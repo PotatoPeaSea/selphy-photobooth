@@ -7,7 +7,7 @@ import ReviewScreen from "@/components/booth/ReviewScreen";
 import ScanScreen from "@/components/booth/ScanScreen";
 import ShootScreen from "@/components/booth/ShootScreen";
 import { useCamera, useIdle, usePrinter } from "@/components/booth/hooks";
-import { printToDataUrl, renderPrint, type FrameId } from "@/lib/print/frames";
+import { printToDataUrl, renderPrint, toPrinterDataUrl, type FrameId } from "@/lib/print/frames";
 import type { PrintMode } from "@/lib/print/layouts";
 import { createStripShareQr } from "@/lib/stripShare";
 
@@ -53,9 +53,12 @@ export default function PhotoboothApp() {
     printing.current = true;
     const id = session.current;
     const chosen = frame;
-    let dataUrl: string;
+    let shareUrl: string;
+    let printUrl: string;
     try {
-      dataUrl = printToDataUrl(await renderPrint({ mode, frame: chosen, photos: shots }));
+      const canvas = await renderPrint({ mode, frame: chosen, photos: shots });
+      shareUrl = printToDataUrl(canvas); // upright, landscape for the grid
+      printUrl = toPrinterDataUrl(canvas); // always portrait for the Selphy
     } finally {
       printing.current = false;
     }
@@ -65,11 +68,11 @@ export default function PhotoboothApp() {
     const patch = (p: Partial<Extract<Step, { name: "done" }>>) =>
       setStep((s) => (session.current === id && s.name === "done" ? { ...s, ...p } : s));
 
-    createStripShareQr(dataUrl, window.location.origin).then(
+    createStripShareQr(shareUrl, window.location.origin).then(
       (qr) => patch({ share: { kind: "ready", qr } }),
       () => patch({ share: { kind: "failed" } })
     );
-    printer.print(dataUrl).then(
+    printer.print(printUrl).then(
       () => patch({ print: { kind: "sent" } }),
       (err: unknown) =>
         patch({ print: { kind: "failed", message: err instanceof Error ? err.message : "Print failed" } })

@@ -51,7 +51,7 @@ export function OtterScene({
   matrixColors?: { dot: string; label: string };
   className?: string;
 }) {
-  const fullBody = otter === "sparky";
+  const fullBody = otter === "otter-sparky";
   const [open, close] = frame === "braces" ? [braceOpen, braceClose] : [bracketOpen, bracketClose];
   return (
     <div className={`pointer-events-none absolute inset-0 ${className ?? ""}`} aria-hidden>

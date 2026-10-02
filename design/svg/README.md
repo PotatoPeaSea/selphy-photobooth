@@ -34,6 +34,8 @@ Only the small, fully vector files are committed. The large exports are listed i
 | `otter-sparky.png` | "Otter" in `illustration-otter-brush-steps.svg` (full body, boba) |
 | `otter-stormy.png` | "Otter" in `dynamic-loops-post-2.svg` (cut off at the post edge) |
 | `otter-pink.png` | Body/Head/Arm groups in `applications-open-post.svg` (cut off at the post edge) |
+| `otter-sparky-vr.png` | "MaskOff" + "Mask" groups in `dynamic-loops-post-1.svg` (Sparky in the VR visor) |
+| `otter-stormy-walk.png`, `daisy-1…4.png`, `bush-1…3.png` | "Stormy", "FlowerMoving-*" and "Bush-Moving-*" layers of `illustration-landing-scene.svg` |
 | `grain.png` | 384 px crop of the embedded GrainFut texture (used at 40 % overlay in the posts) |
 
 Otters are rasterised because their brush strokes use Figma texture filters that are slow on the Pi and unreliable when drawn to canvas.

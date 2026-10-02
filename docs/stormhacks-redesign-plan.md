@@ -18,6 +18,7 @@ Source of truth for the brand: `design/design.md` + `design/examples/` (extracte
 | Retakes | Only "retake all", on the review screen before printing |
 | Printer | Shooting never blocked by printer state. Status shown on review. On print failure: error + QR so the guest still gets the photo |
 | Frames | Old five dropped. New: **Stormy** (blue, `[ ]` loops), **Sparky** (yellow, orange `{i++;}` matrices), **Orange** (orange, `{ };` loops), **Clean** (white, primary logo). Footer: tertiary logo bottom-left, "Oct 3 + 4 ★ SFU Burnaby" bottom-right |
+| Changes after first test (2026-10-02) | **Full Frame shoots landscape** (camera is landscape): 2×2 grid of 4:3 photos on a landscape 6×4 sheet with a brand column, rotated to portrait only for the printer; the share copy stays upright. **Three more illustrated frames**: Garden (bushes, daisies, Sparky and Stormy from the landing scene), Crew (all three otters behind `[[[ ]]];`), Hacker (Shady Black, code matrices, VR Sparky). Every frame except Clean carries an otter |
 | Session end | Done screen auto-returns to scan after ~45 s or on tap. Review screen times out after 60 s of no touch (nothing printed). No guest reprint button |
 
 ## Screen flow

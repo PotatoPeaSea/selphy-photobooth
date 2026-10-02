@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BracketButton } from "@/components/brand/Brand";
-import { FRAMES, renderPrint, type FrameId } from "@/lib/print/frames";
+import { artSrc, FRAMES, renderPrint, type FrameId } from "@/lib/print/frames";
 import type { PrintMode } from "@/lib/print/layouts";
 import type { PrinterStatus } from "./hooks";
 import { BoothScreen } from "./Scene";
@@ -75,11 +75,15 @@ export default function ReviewScreen({
   }, [mode, shots]);
 
   const src = previews[frame];
+  const landscape = mode === "grid";
 
   return (
     <BoothScreen className="flex items-stretch gap-[1.75rem] bg-sh-white px-[1.5rem] py-[1.25rem] text-sh-black">
       <div className="flex h-full shrink-0 items-center">
-        <div className="relative aspect-[2/3] h-full overflow-hidden rounded-[0.6rem] bg-sh-black/10" data-testid="print-preview">
+        <div
+          className={`relative overflow-hidden rounded-[0.6rem] bg-sh-black/10 ${landscape ? "aspect-[3/2] w-[30.5rem]" : "aspect-[2/3] h-full"}`}
+          data-testid="print-preview"
+        >
           {src ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img key={frame} src={src} alt="Your print" className="h-full w-full animate-pop object-cover" data-frame={frame} />
@@ -95,10 +99,10 @@ export default function ReviewScreen({
           <span className="type-display block text-[3rem]">Good!</span>
         </h1>
 
-        <p className="mt-[1.1rem] text-[0.85rem] font-semibold uppercase tracking-[0.12em] text-sh-black/60">
+        <p className="mt-[0.8rem] text-[0.85rem] font-semibold uppercase tracking-[0.12em] text-sh-black/60">
           Pick a frame
         </p>
-        <div className="mt-[0.5rem] grid grid-cols-4 gap-[0.6rem]" role="radiogroup" aria-label="Frame">
+        <div className="mt-[0.4rem] grid grid-cols-4 gap-[0.45rem]" role="radiogroup" aria-label="Frame">
           {FRAMES.map((f) => {
             const on = f.id === frame;
             return (
@@ -109,15 +113,24 @@ export default function ReviewScreen({
                 aria-checked={on}
                 data-frame={f.id}
                 onClick={() => onFrame(f.id)}
-                className={`flex flex-col items-center gap-[0.4rem] rounded-card p-[0.4rem] transition-colors ${
+                className={`flex flex-col items-center gap-[0.25rem] rounded-[0.8rem] p-[0.3rem] transition-colors ${
                   on ? "bg-sh-black text-sh-white" : "text-sh-black"
                 }`}
               >
                 <span
-                  className="block aspect-square w-full rounded-[0.7rem] ring-1 ring-inset ring-sh-black/15"
+                  className="relative block aspect-[5/3] w-full overflow-hidden rounded-[0.55rem] ring-1 ring-inset ring-sh-black/15"
                   style={{ background: f.bg }}
-                />
-                <span className="type-display text-[1.05rem]">{f.label}</span>
+                >
+                  {f.id !== "clean" && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={artSrc(f.mascot)}
+                      alt=""
+                      className="absolute bottom-0 left-1/2 h-[88%] max-w-none -translate-x-1/2"
+                    />
+                  )}
+                </span>
+                <span className="type-display text-[0.95rem]">{f.label}</span>
               </button>
             );
           })}

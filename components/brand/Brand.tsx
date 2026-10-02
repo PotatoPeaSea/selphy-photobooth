@@ -47,7 +47,8 @@ export function TertiaryLogo({ className }: { className?: string }) {
   return <Shape shape={logoTertiary} className={className} title="SH 26’" />;
 }
 
-export type OtterName = "sparky" | "stormy" | "pink";
+/** Illustration file in public/brand/ without extension, e.g. "otter-pink". */
+export type OtterName = string;
 
 /** Surge otter illustration (transparent PNG cut from the brand posts). */
 export function Otter({
@@ -62,7 +63,7 @@ export function Otter({
   // eslint-disable-next-line @next/next/no-img-element
   return (
     <img
-      src={`/brand/otter-${name}.png`}
+      src={`/brand/${name}.png`}
       alt=""
       draggable={false}
       className={className}

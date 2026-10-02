@@ -26,14 +26,14 @@ export default function BrandSheet() {
 
       <section className="relative overflow-hidden bg-sh-yellow">
         <Shape shape={bracketOpen} className="absolute left-[8%] top-[18%] w-[45%] text-white" />
-        <Otter name="stormy" className="absolute bottom-0 left-1/2 h-[85%] -translate-x-1/2" />
+        <Otter name="otter-stormy" className="absolute bottom-0 left-1/2 h-[85%] -translate-x-1/2" />
         <Shape shape={bracketClose} className="absolute bottom-[8%] right-[4%] w-[45%] text-white" />
         <Grain />
       </section>
 
       <section className="relative overflow-hidden bg-sh-orange">
         <Shape shape={braceOpen} className="absolute left-[4%] top-[20%] w-[45%] text-sh-white" />
-        <Otter name="sparky" className="absolute bottom-[2%] left-1/2 h-[80%] -translate-x-1/2" />
+        <Otter name="otter-sparky" className="absolute bottom-[2%] left-1/2 h-[80%] -translate-x-1/2" />
         <Shape shape={braceClose} className="absolute bottom-[6%] right-[4%] w-[45%] text-sh-white" />
         <Grain />
       </section>
@@ -62,7 +62,7 @@ export default function BrandSheet() {
       </section>
 
       <section className="relative overflow-hidden bg-sh-blue">
-        <Otter name="pink" className="absolute bottom-0 left-1/2 h-[80%] -translate-x-1/2" />
+        <Otter name="otter-pink" className="absolute bottom-0 left-1/2 h-[80%] -translate-x-1/2" />
         <CodeMatrix matrix={MATRIX_SPRAY} dotColor="#F9B200" labelColor="#ECECEF" className="absolute left-[0.5rem] top-[0.5rem] h-[45%]" />
         <Grain />
       </section>

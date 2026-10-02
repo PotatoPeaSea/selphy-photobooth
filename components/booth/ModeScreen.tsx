@@ -1,7 +1,7 @@
 "use client";
 
 import { BracketButton, TertiaryLogo } from "@/components/brand/Brand";
-import { printLayout, SHEET_H, SHEET_W, type PrintMode } from "@/lib/print/layouts";
+import { printLayout, type PrintMode } from "@/lib/print/layouts";
 import { BoothScreen } from "./Scene";
 
 /** Miniature of the printed sheet, drawn from the real print geometry. */
@@ -17,26 +17,27 @@ export function PrintDiagram({
   cell?: string;
 }) {
   const layout = printLayout(mode);
+  const { width: W, height: H } = layout;
   return (
-    <svg viewBox={`0 0 ${SHEET_W} ${SHEET_H}`} className={className} aria-hidden>
-      <rect width={SHEET_W} height={SHEET_H} rx={40} fill={sheet} />
+    <svg viewBox={`0 0 ${W} ${H}`} className={className} aria-hidden>
+      <rect width={W} height={H} rx={40} fill={sheet} />
       {layout.panels.flatMap((p, pi) => [
         ...p.cells.map((c, i) => (
           <rect key={`${pi}-${i}`} x={c.x} y={c.y} width={c.w} height={c.h} rx={layout.radius * 2} fill={cell} opacity={0.85} />
         )),
         <rect
           key={`${pi}-f`}
-          x={p.footer.x}
-          y={p.footer.y + p.footer.h * 0.3}
-          width={p.footer.w * 0.45}
-          height={p.footer.h * 0.22}
-          rx={p.footer.h * 0.11}
+          x={p.brand.x + (p.brandSide === "right" ? p.brand.w * 0.15 : 0)}
+          y={p.brand.y + (p.brandSide === "right" ? 0 : p.brand.h * 0.3)}
+          width={p.brandSide === "right" ? p.brand.w * 0.7 : p.brand.w * 0.45}
+          height={50}
+          rx={25}
           fill={cell}
           opacity={0.35}
         />,
       ])}
       {layout.cuts.map((x) => (
-        <line key={x} x1={x} x2={x} y1={0} y2={SHEET_H} stroke={cell} strokeWidth={6} strokeDasharray="28 22" opacity={0.4} />
+        <line key={x} x1={x} x2={x} y1={0} y2={H} stroke={cell} strokeWidth={6} strokeDasharray="28 22" opacity={0.4} />
       ))}
     </svg>
   );
@@ -46,14 +47,14 @@ const OPTIONS: { mode: PrintMode; title: string; blurb: string; card: string; sh
   {
     mode: "strip",
     title: "Two Strips",
-    blurb: "4 landscape shots, printed twice — one strip for you, one for a friend",
+    blurb: "4 shots, printed twice — a strip for you and one for a friend",
     card: "bg-sh-blue text-sh-white",
     sheet: "#ECECEF",
   },
   {
     mode: "grid",
     title: "Full Frame",
-    blurb: "4 portrait shots in a big 2 × 2 grid on one 4 × 6 print",
+    blurb: "4 big landscape shots in a 2 × 2 grid on one 6 × 4 print",
     card: "bg-sh-orange text-sh-black",
     sheet: "#ECECEF",
   },
@@ -85,13 +86,17 @@ export default function ModeScreen({
             type="button"
             data-mode={o.mode}
             onClick={() => onPick(o.mode)}
-            className={`group relative flex min-h-0 items-center gap-[1.25rem] overflow-hidden rounded-card p-[1.25rem] text-left transition-transform duration-150 active:scale-[0.98] ${o.card}`}
+            className={`group relative flex min-h-0 flex-col gap-[0.9rem] overflow-hidden rounded-card p-[1.25rem] text-left transition-transform duration-150 active:scale-[0.98] ${o.card}`}
           >
-            <PrintDiagram mode={o.mode} sheet={o.sheet} className="h-full max-h-[22rem] w-auto shrink-0" />
-            <span className="flex min-w-0 flex-col gap-[0.6rem]">
-              <span className="type-display text-[2.3rem]">{o.title}</span>
-              <span className="text-[0.95rem] font-medium leading-snug opacity-85">{o.blurb}</span>
-              <span className="type-display mt-[0.4rem] text-[1.3rem]">[ Choose ]</span>
+            <span className="flex min-h-0 flex-1 items-center justify-center">
+              <PrintDiagram mode={o.mode} sheet={o.sheet} className="h-full max-h-full w-full" />
+            </span>
+            <span className="flex items-end justify-between gap-[1rem]">
+              <span className="flex min-w-0 flex-col gap-[0.35rem]">
+                <span className="type-display text-[2.1rem]">{o.title}</span>
+                <span className="text-[0.9rem] font-medium leading-snug opacity-85">{o.blurb}</span>
+              </span>
+              <span className="type-display shrink-0 text-[1.3rem]">[ Choose ]</span>
             </span>
           </button>
         ))}

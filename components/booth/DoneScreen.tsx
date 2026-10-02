@@ -16,6 +16,19 @@ const SCENE: Record<FrameId, SceneFrame> = {
   orange: "braces",
   sparky: "matrix",
   clean: "brackets",
+  garden: "braces",
+  crew: "brackets",
+  hacker: "matrix",
+};
+
+const LOOP_COLOR: Record<FrameId, string> = {
+  stormy: "#FFFFFF",
+  orange: "#ECECEF",
+  sparky: "#ECECEF",
+  clean: "#0278FF",
+  garden: "#FFFFFF",
+  crew: "#0278FF",
+  hacker: "#ECECEF",
 };
 
 function copyFor(print: PrintState, mode: PrintMode) {
@@ -55,11 +68,10 @@ export default function DoneScreen({
   const left = useCountdown(DONE_MS, onFinish);
   const copy = copyFor(print, mode);
   const dark = info.fg !== "#101A21";
-  const otter = info.otter ?? "sparky";
 
   return (
     <BoothScreen
-      grain={frame !== "clean"}
+      grain={frame !== "clean" && frame !== "crew"}
       style={{ background: info.bg, color: info.fg }}
       onClick={onFinish}
       data-testid="done"
@@ -67,9 +79,10 @@ export default function DoneScreen({
     >
       <div className="absolute bottom-0 right-[0.5rem] top-[3.5rem] w-[24rem]">
         <OtterScene
-          otter={otter}
+          otter={info.mascot}
           frame={SCENE[frame]}
-          loopColor={frame === "stormy" ? "#FFFFFF" : frame === "clean" ? "#0278FF" : "#ECECEF"}
+          loopColor={LOOP_COLOR[frame]}
+          matrixColors={frame === "hacker" ? { dot: "#0278FF", label: "#FF5D0B" } : undefined}
         />
       </div>
 

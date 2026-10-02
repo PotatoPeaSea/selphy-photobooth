@@ -142,7 +142,7 @@ export default function ScanScreen({ onAdmitted }: { onAdmitted: () => void }) {
       <div className="absolute bottom-0 right-[1rem] top-[2.5rem] w-[27rem]">
         <OtterScene
           key={admitted ? "yay" : "idle"}
-          otter="pink"
+          otter="otter-pink"
           frame="brackets"
           className={admitted ? "animate-rise" : ""}
         />
