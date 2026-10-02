@@ -118,7 +118,7 @@ export const artSrc = (name: ArtImage) => `/brand/${name}.png`;
 
 /** Fonts and images must be ready before drawing or canvas silently falls back. */
 export async function preparePrintAssets(): Promise<void> {
-  const names = new Set(FRAMES.flatMap((f) => f.images));
+  const names = new Set(FRAMES.flatMap((f) => frameImages(f.id)));
   await Promise.all([
     document.fonts.load(`800 40px ${canvasFamily(fraunces)}`),
     document.fonts.load(`500 40px ${canvasFamily(inter)}`),
@@ -397,6 +397,331 @@ function drawText(d: DrawCtx, panel: Panel) {
   drawTextBlock(d, x, b.y + 6, w, "center", COLUMN_TEXT);
 }
 
+// ---------------------------------------------------------------- decor
+
+/**
+ * Event-strip extras drawn over the photos: die-cut stickers pinned across
+ * the photo edges, a title across the first gap, tagline text down the side
+ * margin and brand stars/dots scattered in the empty margins.
+ */
+type StickerArt =
+  | { kind: "image"; name: ArtImage }
+  | { kind: "star"; color: string }
+  /** "{i++;}" chip. */
+  | { kind: "code"; bg: string; fg: string };
+
+interface Sticker {
+  art: StickerArt;
+  /** Cell the sticker is pinned to, and its centre as fractions of that cell. */
+  cell: number;
+  at: [number, number];
+  /** Height as a fraction of a strip photo's height. */
+  size: number;
+  /** Tilt in degrees. */
+  tilt: number;
+}
+
+interface Decor {
+  stickers: Sticker[];
+  title: { fill: string; stroke: string } | null;
+  /** Colours for the scattered stars and dots. */
+  confetti: string[];
+}
+
+/** Sticker slots, alternating sides down the strip like a printed event strip. */
+const pinA = (art: StickerArt): Sticker => ({ art, cell: 0, at: [0.92, 0.08], size: 0.3, tilt: 12 });
+const pinB = (art: StickerArt): Sticker => ({ art, cell: 1, at: [0.93, 1.0], size: 0.5, tilt: -8 });
+const pinC = (art: StickerArt): Sticker => ({ art, cell: 2, at: [0.07, 0.98], size: 0.46, tilt: 7 });
+const image = (name: ArtImage): StickerArt => ({ kind: "image", name });
+const starArt = (color: string): StickerArt => ({ kind: "star", color });
+const code = (bg: string, fg: string): StickerArt => ({ kind: "code", bg, fg });
+
+const DECOR: Record<FrameId, Decor> = {
+  stormy: {
+    stickers: [pinA(starArt(BRAND.yellow)), pinB(image("otter-stormy-walk")), pinC(image("daisy-2"))],
+    title: { fill: BRAND.yellow, stroke: BRAND.black },
+    confetti: [BRAND.yellow, BRAND.white, BRAND.orange],
+  },
+  sparky: {
+    stickers: [pinA(code(BRAND.black, BRAND.orange)), pinB(image("otter-pink")), pinC(image("daisy-1"))],
+    title: { fill: BRAND.blue, stroke: BRAND.black },
+    confetti: [BRAND.blue, BRAND.orange, BRAND.white],
+  },
+  orange: {
+    stickers: [pinA(starArt(BRAND.blue)), pinB(image("otter-sparky-vr")), pinC(image("daisy-3"))],
+    title: { fill: BRAND.yellow, stroke: BRAND.black },
+    confetti: [BRAND.yellow, BRAND.white, BRAND.blue],
+  },
+  clean: { stickers: [], title: null, confetti: [BRAND.blue, BRAND.orange, BRAND.yellow] },
+  garden: {
+    stickers: [pinA(image("daisy-4")), pinB(image("otter-pink")), pinC(image("otter-stormy"))],
+    title: { fill: BRAND.yellow, stroke: BRAND.black },
+    confetti: [BRAND.yellow, BRAND.white],
+  },
+  crew: {
+    stickers: [pinA(starArt(BRAND.yellow)), pinB(image("daisy-1")), pinC(code(BRAND.blue, BRAND.white))],
+    title: { fill: BRAND.orange, stroke: BRAND.black },
+    confetti: [BRAND.blue, BRAND.orange, BRAND.yellow],
+  },
+  hacker: {
+    stickers: [pinA(code(BRAND.blue, BRAND.black)), pinB(image("otter-stormy")), pinC(starArt(BRAND.orange))],
+    title: { fill: BRAND.orange, stroke: BRAND.black },
+    confetti: [BRAND.blue, BRAND.orange],
+  },
+};
+
+/** Every image a frame draws: its artwork plus its stickers. */
+export function frameImages(id: FrameId): ArtImage[] {
+  const names = new Set(frameInfo(id).images);
+  for (const s of DECOR[id].stickers) if (s.art.kind === "image") names.add(s.art.name);
+  return [...names];
+}
+
+const TITLE = "StormHacks 26’";
+const TAGLINE = ["West Canada’s Largest Hackathon", "Oct 3 + 4", "SFU Burnaby", "#StormHacks26"];
+
+/** Seeded PRNG so both strips (and every reprint) scatter identically. */
+function rng(seed: number) {
+  return () => {
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/** Paint the sticker's art into a fresh canvas of height `h` (device px). */
+function stickerBody(d: DrawCtx, art: StickerArt, h: number): HTMLCanvasElement | null {
+  let w: number;
+  if (art.kind === "image") {
+    const i = d.images[art.name];
+    if (!i) return null;
+    w = h * aspect(i);
+  } else if (art.kind === "star") w = shapeWidth(star, h);
+  else w = h * 2.5;
+  const c = document.createElement("canvas");
+  c.width = Math.ceil(w);
+  c.height = Math.ceil(h);
+  const ctx = c.getContext("2d")!;
+  if (art.kind === "image") ctx.drawImage(d.images[art.name]!, 0, 0, w, h);
+  else if (art.kind === "star") drawShape(ctx, star, 0, 0, h, art.color);
+  else {
+    ctx.fillStyle = art.bg;
+    ctx.beginPath();
+    ctx.roundRect(0, 0, w, h, h * 0.28);
+    ctx.fill();
+    ctx.fillStyle = art.fg;
+    ctx.font = `800 ${h * 0.56}px ${d.display}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("{i++;}", w / 2, h * 0.53);
+  }
+  return c;
+}
+
+/** Fill `src`'s silhouette with `color`. */
+function silhouette(src: HTMLCanvasElement, color: string): HTMLCanvasElement {
+  const c = document.createElement("canvas");
+  c.width = src.width;
+  c.height = src.height;
+  const ctx = c.getContext("2d")!;
+  ctx.drawImage(src, 0, 0);
+  ctx.globalCompositeOperation = "source-in";
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, c.width, c.height);
+  return c;
+}
+
+const stickerCache = new Map<string, HTMLCanvasElement | null>();
+
+/** The art with a white die-cut border and a faint dark rim, at device resolution. */
+function stickerCanvas(d: DrawCtx, art: StickerArt, h: number): HTMLCanvasElement | null {
+  const key = `${JSON.stringify(art)}@${Math.round(h)}`;
+  if (stickerCache.has(key)) return stickerCache.get(key)!;
+  const body = stickerBody(d, art, h);
+  let out: HTMLCanvasElement | null = null;
+  if (body) {
+    const pad = Math.max(4, Math.round(h * 0.045));
+    const rim = Math.max(1, Math.round(pad * 0.25));
+    out = document.createElement("canvas");
+    out.width = body.width + (pad + rim) * 2;
+    out.height = body.height + (pad + rim) * 2;
+    const ctx = out.getContext("2d")!;
+    const o = pad + rim;
+    const ring = (layer: HTMLCanvasElement, r: number) => {
+      for (let a = 0; a < 24; a++) {
+        const t = (a / 24) * Math.PI * 2;
+        ctx.drawImage(layer, o + Math.cos(t) * r, o + Math.sin(t) * r);
+      }
+    };
+    ring(silhouette(body, "rgba(16,26,33,0.28)"), pad + rim);
+    const white = silhouette(body, "#FFFFFF");
+    ring(white, pad);
+    ring(white, pad * 0.5);
+    ctx.drawImage(body, o, o);
+  }
+  stickerCache.set(key, out);
+  return out;
+}
+
+function drawSticker(d: DrawCtx, s: Sticker, panel: Panel, unit: number) {
+  const cell = panel.cells[s.cell];
+  if (!cell) return;
+  const scale = d.ctx.getTransform().a;
+  // Chips are wide, so they get a shorter height to match the other stickers' area.
+  const h = unit * s.size * (s.art.kind === "code" ? 0.5 : 1);
+  // Rendered at device resolution, drawn back at layout size.
+  const c = stickerCanvas(d, s.art, h * scale);
+  if (!c) return;
+  const fullW = c.width / scale;
+  const fullH = c.height / scale;
+  // Keep the whole sticker on its panel (rotation ignored; tilts are small).
+  const b = panel.bounds;
+  const m = 8;
+  const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi);
+  const cx = clamp(cell.x + cell.w * s.at[0], b.x + fullW / 2 + m, b.x + b.w - fullW / 2 - m);
+  const cy = clamp(cell.y + cell.h * s.at[1], b.y + fullH / 2 + m, b.y + b.h - fullH / 2 - m);
+  const { ctx } = d;
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate((s.tilt * Math.PI) / 180);
+  ctx.drawImage(c, -fullW / 2, -fullH / 2, fullW, fullH);
+  ctx.restore();
+}
+
+/** "StormHacks 26’" with a sticker-style outline, centred on (cx, cy). */
+function drawTitle(d: DrawCtx, cx: number, cy: number, maxW: number, colors: { fill: string; stroke: string }) {
+  const { ctx } = d;
+  let size = 72;
+  ctx.font = `900 ${size}px ${d.display}`;
+  while (size > 24 && ctx.measureText(TITLE).width + size * 0.4 > maxW) {
+    size -= 1;
+    ctx.font = `900 ${size}px ${d.display}`;
+  }
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate((-3 * Math.PI) / 180);
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.lineJoin = "round";
+  ctx.strokeStyle = "#FFFFFF";
+  ctx.lineWidth = size * 0.36;
+  ctx.strokeText(TITLE, 0, 0);
+  ctx.strokeStyle = colors.stroke;
+  ctx.lineWidth = size * 0.18;
+  ctx.strokeText(TITLE, 0, 0);
+  ctx.fillStyle = colors.fill;
+  ctx.fillText(TITLE, 0, 0);
+  ctx.restore();
+}
+
+/** Tagline `segments` split by brand stars along a line of length `len`, centred at the origin. */
+function drawSideText(d: DrawCtx, segments: string[], len: number, size: number) {
+  const { ctx } = d;
+  ctx.font = `700 ${size}px ${d.body}`;
+  ctx.letterSpacing = `${size * 0.18}px`;
+  const parts = segments.map((t) => t.toUpperCase());
+  const starH = size * 0.9;
+  const gap = size * 0.9;
+  const starW = shapeWidth(star, starH);
+  const widths = parts.map((p) => ctx.measureText(p).width);
+  const total = widths.reduce((a, b) => a + b, 0) + (parts.length - 1) * (starW + gap * 2);
+  if (total > len) return;
+  ctx.fillStyle = d.frame.fg;
+  ctx.globalAlpha = 0.85;
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  let x = -total / 2;
+  parts.forEach((p, i) => {
+    ctx.fillText(p, x, 0);
+    x += widths[i]!;
+    if (i < parts.length - 1) {
+      drawShape(ctx, star, x + gap, -starH / 2, starH, d.frame.fg);
+      x += starW + gap * 2;
+    }
+  });
+  ctx.globalAlpha = 1;
+  ctx.letterSpacing = "0px";
+}
+
+/** Stars and dots scattered along a margin strip `zone`, spaced along its long side. */
+function drawConfetti(d: DrawCtx, zone: Rect, count: number, seed: number) {
+  const { ctx } = d;
+  const colors = DECOR[d.frame.id].confetti;
+  const rand = rng(seed);
+  const vertical = zone.h > zone.w;
+  const long = vertical ? zone.h : zone.w;
+  const short = vertical ? zone.w : zone.h;
+  for (let i = 0; i < count; i++) {
+    const along = ((i + 0.2 + rand() * 0.6) / count) * long;
+    const isStar = i % 3 !== 1;
+    const s = isStar ? short * (0.4 + rand() * 0.35) : short * (0.12 + rand() * 0.1);
+    const across = s / 2 + rand() * Math.max(0, short - s);
+    const x = zone.x + (vertical ? across : along);
+    const y = zone.y + (vertical ? along : across);
+    const color = colors[i % colors.length]!;
+    if (isStar) drawShape(ctx, star, x - shapeWidth(star, s) / 2, y - s / 2, s, color);
+    else {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      ctx.arc(x, y, s / 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
+/** Decor for one panel — drawn last, over the photos. */
+function drawDecor(d: DrawCtx, panel: Panel) {
+  const { ctx } = d;
+  const decor = DECOR[d.frame.id];
+  const cells = panel.cells;
+  const first = cells[0]!;
+  const last = cells[cells.length - 1]!;
+  const b = panel.bounds;
+
+  if (panel.brandSide === "bottom") {
+    // Tagline running down the right margin in two runs, leaving the
+    // second-gap sticker room; confetti down the left.
+    const right = first.x + first.w;
+    const midX = right + (b.x + b.w - right) / 2;
+    const gapY = cells[1]!.y + cells[1]!.h;
+    const runs: [string[], number, number][] = [
+      [TAGLINE.slice(0, 1), first.y, gapY - first.h * 0.32],
+      [TAGLINE.slice(1), gapY + first.h * 0.32, last.y + last.h],
+    ];
+    for (const [segments, y0, y1] of runs) {
+      ctx.save();
+      ctx.translate(midX, (y0 + y1) / 2);
+      ctx.rotate(Math.PI / 2);
+      drawSideText(d, segments, y1 - y0, 17);
+      ctx.restore();
+    }
+    drawConfetti(d, { x: b.x + 6, y: first.y, w: first.x - b.x - 12, h: last.y + last.h - first.y }, 11, 26);
+  } else {
+    // Tagline along the bottom margin, confetti down the left and across the top.
+    const top = first.y;
+    const right = cells[1]!.x + cells[1]!.w;
+    const bottom = last.y + last.h;
+    ctx.save();
+    ctx.translate((first.x + 200 + right) / 2, (bottom + b.y + b.h) / 2);
+    drawSideText(d, TAGLINE, right - first.x - 200, 20);
+    ctx.restore();
+    drawConfetti(d, { x: b.x + 4, y: top, w: first.x - b.x - 8, h: bottom - top }, 9, 26);
+    drawConfetti(d, { x: first.x, y: 14, w: right - first.x, h: top - 28 }, 16, 3);
+  }
+
+  // Title across the gap under the first photo (the first row in the grid).
+  if (decor.title) {
+    const below = panel.brandSide === "bottom" ? cells[1]! : cells[2]!;
+    const span = panel.brandSide === "bottom" ? first.w : cells[1]!.x + cells[1]!.w - first.x;
+    const cy = (first.y + first.h + below.y) / 2;
+    drawTitle(d, first.x + span / 2, cy, panel.brandSide === "bottom" ? span * 0.92 : span * 0.5, decor.title);
+  }
+
+  const unit = panel.brandSide === "bottom" ? first.h : first.h * 0.8;
+  for (const s of decor.stickers) drawSticker(d, s, panel, unit);
+}
+
 function drawCutGuides(d: DrawCtx) {
   const { ctx } = d;
   ctx.save();
@@ -437,12 +762,13 @@ export async function renderPrint({
   await preparePrintAssets();
   const layout = printLayout(mode);
   const frame = frameInfo(frameId);
+  const names = frameImages(frameId);
   const [grain, ...loaded] = await Promise.all([
     loadImage("/brand/grain.png"),
-    ...frame.images.map((n) => loadImage(artSrc(n))),
+    ...names.map((n) => loadImage(artSrc(n))),
   ]);
   const images: DrawCtx["images"] = {};
-  frame.images.forEach((n, i) => {
+  names.forEach((n, i) => {
     if (loaded[i]) images[n] = loaded[i]!;
   });
 
@@ -471,6 +797,7 @@ export async function renderPrint({
       if (photo) drawPhoto(ctx, photo, cell, layout.radius);
     });
     drawText(d, panel);
+    drawDecor(d, panel);
     ctx.restore();
   }
   drawCutGuides(d);
