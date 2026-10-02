@@ -30,7 +30,8 @@ export function isAllowedShareUrl(url: string): boolean {
   }
 }
 
-export async function uploadStripShare(imageDataUrl: string): Promise<string> {
+/** `page` is set when the upload already has its own guest page (home gallery). */
+export async function uploadStripShare(imageDataUrl: string): Promise<{ url: string; page?: string }> {
   const res = await fetch("/api/share", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -40,8 +41,7 @@ export async function uploadStripShare(imageDataUrl: string): Promise<string> {
     const body = (await res.json().catch(() => null)) as { error?: string } | null;
     throw new Error(body?.error ?? "Share upload failed");
   }
-  const { url } = (await res.json()) as { url: string };
-  return url;
+  return (await res.json()) as { url: string; page?: string };
 }
 
 /** Booth save page — nicer on mobile than opening the raw image URL. */
@@ -53,8 +53,8 @@ export async function createStripShareQr(
   imageDataUrl: string,
   origin: string
 ): Promise<string> {
-  const imageUrl = await uploadStripShare(imageDataUrl);
-  const viewUrl = buildShareViewUrl(origin, imageUrl);
+  const { url, page } = await uploadStripShare(imageDataUrl);
+  const viewUrl = page ?? buildShareViewUrl(origin, url);
   return QRCode.toDataURL(viewUrl, {
     margin: 1,
     width: 320,

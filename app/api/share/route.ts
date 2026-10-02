@@ -1,4 +1,5 @@
 import { hasBlobCredentials, uploadPublicBlob } from "@/lib/blobClient";
+import { hasGalleryConfig, uploadToGallery } from "@/lib/galleryClient";
 import { saveLocalStrip } from "@/lib/localShareStore";
 import { NextResponse } from "next/server";
 
@@ -11,6 +12,12 @@ function dataUrlToBuffer(dataUrl: string): { buffer: Buffer; contentType: string
   return { buffer, contentType };
 }
 
+/**
+ * Store the guest's copy and return where the QR should point.
+ * `page` is a ready-made guest page (home gallery); otherwise `url` is a bare
+ * image for the booth's own /view page. Order: home gallery, then Vercel
+ * Blob, then this machine's disk, so the guest always gets a QR.
+ */
 export async function POST(request: Request) {
   let body: { image?: string };
   try {
@@ -32,6 +39,15 @@ export async function POST(request: Request) {
         : "jpg";
 
   const origin = new URL(request.url).origin;
+
+  if (hasGalleryConfig()) {
+    try {
+      const page = await uploadToGallery(parsed.buffer, parsed.contentType, ext);
+      return NextResponse.json({ url: page, page });
+    } catch (err) {
+      console.error("Gallery upload failed, falling back:", err);
+    }
+  }
 
   if (hasBlobCredentials()) {
     const pathname = `strips/${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
