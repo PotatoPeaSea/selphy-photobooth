@@ -147,6 +147,11 @@ export function startBadgeStation(): Promise<void> {
   state.starting = (async () => {
     await prepareChallenge(state);
     if (state.configError) console.log(`[badge] ${state.configError}`);
+    // On Windows with no PC/SC reader attached, nfc-pcsc blocks the event loop.
+    if (/^(1|true)$/i.test(process.env.DISABLE_NFC ?? "")) {
+      console.log("[badge] NFC disabled (DISABLE_NFC)");
+      return;
+    }
     try {
       startNfc({
         onReader: (name) => {
