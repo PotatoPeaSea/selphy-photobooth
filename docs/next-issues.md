@@ -80,15 +80,25 @@ The outlined title across the gap under the first photo isn't wanted. Delete it
 What was found: homeserver already runs the gallery (`~/photobooth` there,
 README.md + PLAN.md). It's a FastAPI app in Docker on `127.0.0.1:8000`, with
 SQLite + files in `/srv/data/photobooth/` and a 30-day retention. Funnel
-publishes it on `:8443`, and `tailscale serve` publishes `:8000` tailnet-only
-for uploads. Writes that come in through Funnel get a 403, and writes need
-`Authorization: Bearer <API_KEY>`.
+publishes it on `:8443`.
 
-- **Every booth Pi needs** to be on the tailnet, with `GALLERY_UPLOAD_URL` and
-  `GALLERY_API_KEY` in its `.env.local`. Without them it falls back to Blob/LAN.
-- **Public vs private:** the booth always uploads unlisted ("private"). The
-  gallery supports `public` (listed on `/`). We could add a "Show in the
-  public gallery" toggle on Review.
+Since then the gallery has **upload-only keys**. Booths upload through the
+public Funnel URL and don't need Tailscale. A key can only `POST /api/photos`,
+expires after 3 days, and is capped at 500 uploads/day. Uploads stop when the
+drive has under 20 GB free. The admin key still works only on the tailnet.
+See "Upload keys" in the server README.
+
+- **Each booth Pi needs** `GALLERY_UPLOAD_URL` and `GALLERY_API_KEY` in its
+  `.env.local`. Without them it falls back to Blob/LAN.
+- **Keys expire every 3 days.** Make a fresh one per booth before each event
+  day (`~/photobooth/scripts/upload-key.sh create <booth>`). An expired key
+  doesn't break the booth; it just falls back to Blob/LAN until it's replaced.
+  The booth could show a warning when uploads start failing with 401.
+- **Public vs private:** when the guest taps Print, a prompt asks whether to
+  put the photos on the public site. Nothing prints or uploads until they
+  answer; tapping outside the prompt goes back to Review. Anyone holding a key can still upload `public`
+  photos, so if junk ever turns up, revoke that key and delete the photos
+  (they're tagged with `key_id`). A moderation queue would be the next step.
 - **Branding:** the gallery's `/p/<id>` page is a generic "Photobooth" page.
   The StormHacks-styled `/view` page is only used by the fallbacks. Restyle
   the gallery templates, or have the QR go to `/view` with the gallery image.
