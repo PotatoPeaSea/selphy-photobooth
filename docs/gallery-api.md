@@ -20,6 +20,10 @@ Review: guest taps Print, answers "Share it with Everyone?"
                  1. gallery: POST {GALLERY_UPLOAD_URL}/api/photos    lib/galleryClient.ts
                  2. else Vercel Blob (BLOB_READ_WRITE_TOKEN)
                  3. else this machine's disk (/api/share/file/<name>)
+  then, after the print is sent, gallery uploads only:
+       shareFrames(photoId, strip, shots)                         lib/stripShare.ts
+            └─ POST /api/share/frames { photoId, strip, frames }  app/api/share/frames/route.ts
+                 └─ POST {GALLERY_UPLOAD_URL}/api/photos/{id}/frames   lib/galleryClient.ts
 ```
 
 ### `POST /api/share` (booth, same origin)
@@ -45,12 +49,31 @@ Response JSON:
 |---|---|
 | `url` | where the copy was stored |
 | `page` | set only for gallery uploads: the gallery's `/p/<id>` page, which the QR encodes as-is |
+| `photoId` | set only for gallery uploads: the gallery photo id, for `/api/share/frames` |
 | `local` | `true` when it fell back to this machine's disk |
 
 Without `page`, the QR encodes the booth's own `/view?u=<url>` page. If the
 gallery upload fails, the booth logs `Gallery upload failed, falling back` and
 moves to the next option, so the guest still gets a QR. The gallery upload
 gives up after 15 s.
+
+### `POST /api/share/frames` (booth, same origin)
+
+The second request, sent once the print is away so it never holds up the
+QR code on the print. It attaches the guest's shots to their gallery photo,
+whose page then offers "Download all (zip)" and a thumbnail per shot. Blob and
+disk copies stay strip-only.
+
+| Field | Notes |
+|---|---|
+| `photoId` | from `/api/share` |
+| `strip` | `data:image/jpeg;base64,…`: one strip (strip mode: the left half of the sheet, which prints two identical strips; grid mode: the whole sheet) |
+| `frames` | 1–4 `data:image/jpeg;base64,…` URLs: the shots at the camera's resolution, in order |
+
+`204` on success. `400` for bad input, `409` without a gallery configured,
+`502` if the gallery refuses (it only takes frames from the key that made the
+photo, within 10 minutes, once). The booth only logs a failure; the guest
+still has the strip. The frames upload gives up after 60 s.
 
 ### Booth settings (`.env.local`)
 
@@ -90,7 +113,7 @@ Writes take `Authorization: Bearer <key>`. Reads need no auth.
 | Key | Looks like | Where it's accepted | Can call |
 |---|---|---|---|
 | Admin key | `API_KEY` in `.env` | tailnet only (403 through Funnel) | every write |
-| Upload key | `pbu_…` | Funnel and tailnet | `POST /api/photos` only |
+| Upload key | `pbu_…` | Funnel and tailnet | `POST /api/photos`, and `POST /api/photos/{id}/frames` for its own photos |
 
 Upload keys are made on the server and last `UPLOAD_KEY_DAYS` (3 by default):
 
@@ -119,10 +142,12 @@ Every API error has this shape:
 | 401 | `unauthorized` | missing, wrong, expired or revoked key, or an upload key on an admin-only write over the tailnet |
 | 403 | `forbidden` | any admin-only write (`PATCH`, `DELETE`, or an upload with the admin key) through Funnel, whatever the key |
 | 404 | `not_found` | unknown or expired photo, bad media name |
+| 409 | `frames_exist` | the photo already has its frames |
+| 409 | `frames_closed` | an upload key adding frames over 10 minutes after the upload |
 | 405 | `method_not_allowed` | wrong method |
-| 413 | `too_large` | upload over 15 MB |
+| 413 | `too_large` | upload over 15 MB (for frames: the strip and frames together) |
 | 422 | `invalid_visibility` | visibility isn't `public` or `private` |
-| 429 | `rate_limited` | over 300 requests/min or 20 uploads/min per IP, or 30 photo-ID 404s/min |
+| 429 | `rate_limited` | over 300 requests/min or 20 uploads/min per IP (frames count as uploads), or 30 photo-ID 404s/min |
 | 429 | `quota_exceeded` | upload key over `UPLOAD_KEY_DAILY_LIMIT` (500) uploads this UTC day |
 | 507 | `storage_full` | the photo drive has under `MIN_FREE_GB` (20) free |
 
@@ -141,7 +166,14 @@ Returned by upload, get and patch. Times are unix seconds.
   "url": "https://gallery.example.ts.net:8443/p/k3Jx9aQw2LmP",
   "image_url": "https://gallery.example.ts.net:8443/media/k3Jx9aQw2LmP/web.jpg",
   "thumb_url": "https://gallery.example.ts.net:8443/media/k3Jx9aQw2LmP/thumb.jpg",
-  "download_url": "https://gallery.example.ts.net:8443/media/k3Jx9aQw2LmP/original.jpg"
+  "download_url": "https://gallery.example.ts.net:8443/media/k3Jx9aQw2LmP/original.jpg",
+  "frames": [
+    {
+      "url": "https://gallery.example.ts.net:8443/media/k3Jx9aQw2LmP/frames/1.jpg",
+      "thumb_url": "https://gallery.example.ts.net:8443/media/k3Jx9aQw2LmP/frames/1-thumb.jpg"
+    }
+  ],
+  "zip_url": "https://gallery.example.ts.net:8443/media/k3Jx9aQw2LmP/photos.zip"
 }
 ```
 
@@ -152,6 +184,8 @@ Returned by upload, get and patch. Times are unix seconds.
   forever. Expired photos 404 at once, and an hourly job deletes the files.
 - The URLs always use the public base URL (`PUBLIC_BASE_URL`), even when the
   upload came over the tailnet. Put `url` in the QR code.
+- `frames`: the individual shots, in order, once the booth has added them
+  (`[]` until then, and for older photos). `zip_url` is `null` until then.
 
 ### Endpoints
 
@@ -192,6 +226,27 @@ curl -H "Authorization: Bearer $KEY" -F file=@print.jpg -F visibility=private \
   https://gallery.example.ts.net:8443/api/photos
 ```
 
+#### `POST /api/photos/{id}/frames`: add the shots (admin or the photo's upload key)
+
+The booth's second request, sent after the upload so the print's QR code
+isn't held up. `multipart/form-data`:
+
+| Field | Required | Notes |
+|---|---|---|
+| `strip` | yes | JPEG or PNG: the single strip for the zip (strip mode: one half of the sheet; grid mode: the whole sheet) |
+| `frames` | yes, 1–4 | JPEG or PNG, repeated once per shot, in order |
+
+Together they can be up to 15 MB. An upload key may only add frames to a
+photo it uploaded, within 10 minutes of the upload (`401` for another key's
+photo, `409 frames_closed` after that). Frames can be added once
+(`409 frames_exist`). Each image is checked and re-encoded like an upload,
+and the server stores `frames/strip.jpg`, `frames/<n>.jpg` (quality 92) and
+`frames/<n>-thumb.jpg` (400 px). `201` returns the photo object.
+
+```bash
+curl -H "Authorization: Bearer $KEY" -F strip=@strip.jpg   -F frames=@1.jpg -F frames=@2.jpg -F frames=@3.jpg -F frames=@4.jpg   https://gallery.example.ts.net:8443/api/photos/k3Jx9aQw2LmP/frames
+```
+
 #### `GET /api/photos`: list public photos
 
 Query: `limit` (1–100, default 24), `before` and `before_id` (the cursor
@@ -220,7 +275,7 @@ object.
 
 #### `DELETE /api/photos/{id}`: delete (admin key)
 
-Removes the row and the files. `204`.
+Removes the row and the files, frames included. `204`.
 
 #### `GET /healthz`
 
@@ -231,9 +286,11 @@ Removes the row and the files. `204`.
 | Path | What |
 |---|---|
 | `GET /` | Public gallery grid |
-| `GET /p/{id}` | Photo page with Download and Share, plus the expiry date |
+| `GET /p/{id}` | Photo page with Download and Share, plus the expiry date; with frames, also Download all (zip) and a thumbnail per shot |
 | `GET /media/{id}/web.jpg`, `thumb.jpg` | Images, cached for a year |
 | `GET /media/{id}/original.jpg` | Full-size download (`Content-Disposition: attachment`) |
+| `GET /media/{id}/frames/{n}.jpg`, `{n}-thumb.jpg` | One shot and its thumbnail, shown inline (long-press to save on iPhone) |
+| `GET /media/{id}/photos.zip` | The strip (`photobooth-strip.jpg`) and each shot (`photo-<n>.jpg`), uncompressed; `404` without frames |
 | `GET /robots.txt` | Disallows `/p/`, `/media/` and `/api/` |
 | `GET /admin` | Admin panel, tailnet only (see below) |
 

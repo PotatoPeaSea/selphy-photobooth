@@ -11,13 +11,14 @@ import {
   DEFAULT_ADDONS,
   printToDataUrl,
   renderPrint,
+  singleStripDataUrl,
   toPrinterDataUrl,
   type AddOns,
   type FrameId,
 } from "@/lib/print/frames";
 import type { PrintMode } from "@/lib/print/layouts";
 import { galleryBadge, type GalleryBadge, type NfcTap } from "@/lib/nfcChallenge";
-import { shareQrDataUrl, shareStrip } from "@/lib/stripShare";
+import { shareFrames, shareQrDataUrl, shareStrip } from "@/lib/stripShare";
 
 /** Screens that time out back to scan when nobody touches them. */
 const IDLE_MS = 60_000;
@@ -77,10 +78,12 @@ export default function PhotoboothApp() {
     const extras = addons;
     const count = copies;
     let shareUrl: string;
+    let stripUrl: string;
     try {
       // The digital copy has no QR code; it's what the QR code links to.
       const canvas = await renderPrint({ mode, frame: chosen, photos: shots, addons: extras });
       shareUrl = printToDataUrl(canvas); // upright, landscape for the grid
+      stripUrl = singleStripDataUrl(canvas, mode); // one strip, for the zip
     } finally {
       printing.current = false;
     }
@@ -90,7 +93,8 @@ export default function PhotoboothApp() {
     const patch = (p: Partial<Extract<Step, { name: "done" }>>) =>
       setStep((s) => (session.current === id && s.name === "done" ? { ...s, ...p } : s));
 
-    const link = shareStrip(shareUrl, window.location.origin, visibility, badge.current);
+    const shared = shareStrip(shareUrl, window.location.origin, visibility, badge.current);
+    const link = shared.then((s) => s.link);
     link.then(shareQrDataUrl).then(
       (qr) => patch({ share: { kind: "ready", qr } }),
       () => patch({ share: { kind: "failed" } })
@@ -108,6 +112,12 @@ export default function PhotoboothApp() {
     } catch (err: unknown) {
       patch({ print: { kind: "failed", message: err instanceof Error ? err.message : "Print failed" } });
     }
+
+    // The individual shots follow once the print is away, so they never hold
+    // up its QR code. Gallery uploads only; it still runs if the guest leaves.
+    shared
+      .then((s) => (s.photoId ? shareFrames(s.photoId, stripUrl, shots) : undefined))
+      .catch((err: unknown) => console.error("Frames upload failed:", err));
   }
 
   switch (step.name) {

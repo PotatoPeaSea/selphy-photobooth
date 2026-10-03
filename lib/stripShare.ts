@@ -31,12 +31,15 @@ export function isAllowedShareUrl(url: string): boolean {
   }
 }
 
-/** `page` is set when the upload already has its own guest page (home gallery). */
+/**
+ * `page` is set when the upload already has its own guest page (home gallery),
+ * and `photoId` is that gallery photo, for shareFrames.
+ */
 export async function uploadStripShare(
   imageDataUrl: string,
   visibility: "public" | "private",
   badge: GalleryBadge | null = null
-): Promise<{ url: string; page?: string }> {
+): Promise<{ url: string; page?: string; photoId?: string }> {
   const res = await fetch("/api/share", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -46,7 +49,7 @@ export async function uploadStripShare(
     const body = (await res.json().catch(() => null)) as { error?: string } | null;
     throw new Error(body?.error ?? "Share upload failed");
   }
-  return (await res.json()) as { url: string; page?: string };
+  return (await res.json()) as { url: string; page?: string; photoId?: string };
 }
 
 /** Booth save page — nicer on mobile than opening the raw image URL. */
@@ -54,15 +57,42 @@ export function buildShareViewUrl(origin: string, imageUrl: string): string {
   return `${origin}/view?u=${encodeURIComponent(imageUrl)}`;
 }
 
-/** Upload the strip; returns the link the QR code points at. */
+/**
+ * Upload the strip; returns the link the QR code points at, and the gallery
+ * photo id when it went to the gallery (the only place the shots can follow).
+ */
 export async function shareStrip(
   imageDataUrl: string,
   origin: string,
   visibility: "public" | "private" = "private",
   badge: GalleryBadge | null = null
-): Promise<string> {
-  const { url, page } = await uploadStripShare(imageDataUrl, visibility, badge);
-  return page ?? buildShareViewUrl(origin, url);
+): Promise<{ link: string; photoId?: string }> {
+  const { url, page, photoId } = await uploadStripShare(imageDataUrl, visibility, badge);
+  return { link: page ?? buildShareViewUrl(origin, url), photoId };
+}
+
+/**
+ * Attach the guest's individual shots (full camera resolution) and the single
+ * strip to their gallery photo, for its "Download all (zip)".
+ */
+export async function shareFrames(
+  photoId: string,
+  stripDataUrl: string,
+  shots: HTMLCanvasElement[]
+): Promise<void> {
+  const res = await fetch("/api/share/frames", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      photoId,
+      strip: stripDataUrl,
+      frames: shots.map((shot) => shot.toDataURL("image/jpeg", 0.92)),
+    }),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new Error(body?.error ?? "Frames upload failed");
+  }
 }
 
 export function shareQrDataUrl(viewUrl: string): Promise<string> {
@@ -80,5 +110,5 @@ export async function createStripShareQr(
   visibility: "public" | "private" = "private",
   badge: GalleryBadge | null = null
 ): Promise<string> {
-  return shareQrDataUrl(await shareStrip(imageDataUrl, origin, visibility, badge));
+  return shareQrDataUrl((await shareStrip(imageDataUrl, origin, visibility, badge)).link);
 }

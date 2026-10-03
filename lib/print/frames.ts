@@ -851,6 +851,21 @@ export function printToDataUrl(canvas: HTMLCanvasElement, quality = 0.95): strin
   return canvas.toDataURL("image/jpeg", quality);
 }
 
+/**
+ * JPEG of one strip for the guest's zip. The strip sheet is two identical
+ * strips side by side, so this is the left one; a grid sheet is already one piece.
+ */
+export function singleStripDataUrl(canvas: HTMLCanvasElement, mode: PrintMode, quality = 0.95): string {
+  if (mode !== "strip") return printToDataUrl(canvas, quality);
+  const { x, y, w, h } = printLayout(mode).panels[0]!.bounds;
+  const k = canvas.width / PRINTER_W;
+  const out = document.createElement("canvas");
+  out.width = Math.round(w * k);
+  out.height = Math.round(h * k);
+  out.getContext("2d")!.drawImage(canvas, x * k, y * k, w * k, h * k, 0, 0, out.width, out.height);
+  return printToDataUrl(out, quality);
+}
+
 /** JPEG for the Selphy: always portrait 1200×1800, landscape sheets rotated 90°. */
 export function toPrinterDataUrl(canvas: HTMLCanvasElement, quality = 0.95): string {
   if (canvas.height >= canvas.width) return printToDataUrl(canvas, quality);

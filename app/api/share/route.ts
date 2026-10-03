@@ -1,16 +1,8 @@
 import { hasBlobCredentials, uploadPublicBlob } from "@/lib/blobClient";
 import { hasGalleryConfig, uploadToGallery, type Visibility } from "@/lib/galleryClient";
+import { decodeImageDataUrl } from "@/lib/imageDataUrl";
 import { saveLocalStrip } from "@/lib/localShareStore";
 import { NextResponse } from "next/server";
-
-function dataUrlToBuffer(dataUrl: string): { buffer: Buffer; contentType: string } | null {
-  const match = /^data:(image\/[\w+.-]+);base64,(.+)$/i.exec(dataUrl);
-  if (!match) return null;
-
-  const contentType = match[1]!.toLowerCase();
-  const buffer = Buffer.from(match[2]!, "base64");
-  return { buffer, contentType };
-}
 
 /**
  * Store the guest's copy and return where the QR should point.
@@ -19,6 +11,8 @@ function dataUrlToBuffer(dataUrl: string): { buffer: Buffer; contentType: string
  * Blob, then this machine's disk, so the guest always gets a QR.
  * `visibility` ("public" lists it on the gallery) and `badge` (the guest's NFC
  * tap, stored with the photo for the admin panel) only apply to the gallery.
+ * `photoId` comes back only for gallery uploads; the shots then follow it via
+ * /api/share/frames. Blob and disk copies stay strip-only.
  */
 export async function POST(request: Request) {
   let body: { image?: string; visibility?: string; badge?: unknown };
@@ -28,17 +22,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const parsed = typeof body.image === "string" ? dataUrlToBuffer(body.image) : null;
+  const parsed = decodeImageDataUrl(body.image);
   if (!parsed) {
     return NextResponse.json({ error: "Expected data:image URL" }, { status: 400 });
   }
-
-  const ext =
-    parsed.contentType.includes("png")
-      ? "png"
-      : parsed.contentType.includes("webp")
-        ? "webp"
-        : "jpg";
+  const { ext } = parsed;
 
   const origin = new URL(request.url).origin;
 
@@ -48,8 +36,8 @@ export async function POST(request: Request) {
       // The gallery validates the badge fields; send it on only if it's an object.
       const badge =
         body.badge && typeof body.badge === "object" && !Array.isArray(body.badge) ? body.badge : null;
-      const page = await uploadToGallery(parsed.buffer, parsed.contentType, ext, visibility, badge);
-      return NextResponse.json({ url: page, page });
+      const { url: page, id } = await uploadToGallery(parsed.buffer, parsed.contentType, ext, visibility, badge);
+      return NextResponse.json({ url: page, page, photoId: id });
     } catch (err) {
       console.error("Gallery upload failed, falling back:", err);
     }
