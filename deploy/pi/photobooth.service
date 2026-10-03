@@ -1,0 +1,17 @@
+[Unit]
+Description=Selphy Photobooth (Next.js + print server)
+After=network.target photobooth-webcam.service
+Wants=photobooth-webcam.service
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/selphy-photobooth
+ExecStart=/usr/local/bin/pnpm dev
+Restart=always
+RestartSec=3
+Environment=NODE_ENV=development
+EnvironmentFile=/home/pi/selphy-photobooth/.env.local
+
+[Install]
+WantedBy=multi-user.target

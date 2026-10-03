@@ -1,0 +1,6 @@
+// Let the photobooth service (user pi, no active seat) use the NFC reader.
+polkit.addRule(function(action, subject) {
+  if ((action.id == "org.debian.pcsc-lite.access_pcsc" || action.id == "org.debian.pcsc-lite.access_card") && subject.user == "pi") {
+    return polkit.Result.YES;
+  }
+});

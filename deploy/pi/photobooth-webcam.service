@@ -1,0 +1,15 @@
+[Unit]
+Description=Photobooth webcam: Canon DSLR, falling back to Pi Camera (-> /dev/video42)
+After=systemd-modules-load.service
+Wants=systemd-modules-load.service
+
+[Service]
+Type=simple
+User=pi
+ExecStart=/usr/local/bin/photobooth-webcam.sh
+KillMode=control-group
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
