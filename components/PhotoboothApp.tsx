@@ -42,6 +42,7 @@ export default function PhotoboothApp() {
   const [frame, setFrame] = useState<FrameId>("stormy");
   // Every guest starts from the default extras (tagline + confetti).
   const [addons, setAddons] = useState<AddOns>(DEFAULT_ADDONS);
+  const [copies, setCopies] = useState(1);
   // Bumped on every reset so late async results from an old session are ignored.
   const session = useRef(0);
   const printing = useRef(false);
@@ -57,6 +58,7 @@ export default function PhotoboothApp() {
     badge.current = null;
     setFrame("stormy");
     setAddons(DEFAULT_ADDONS);
+    setCopies(1);
     setStep({ name: "scan" });
   }, []);
 
@@ -73,6 +75,7 @@ export default function PhotoboothApp() {
     const id = session.current;
     const chosen = frame;
     const extras = addons;
+    const count = copies;
     let shareUrl: string;
     try {
       // The digital copy has no QR code; it's what the QR code links to.
@@ -100,7 +103,7 @@ export default function PhotoboothApp() {
     ]);
     try {
       const canvas = await renderPrint({ mode, frame: chosen, photos: shots, addons: extras, qrUrl });
-      await printer.print(toPrinterDataUrl(canvas)); // always portrait for the Selphy
+      await printer.print(toPrinterDataUrl(canvas), count); // always portrait for the Selphy
       patch({ print: { kind: "sent" } });
     } catch (err: unknown) {
       patch({ print: { kind: "failed", message: err instanceof Error ? err.message : "Print failed" } });
@@ -130,6 +133,8 @@ export default function PhotoboothApp() {
           onFrame={setFrame}
           addons={addons}
           onAddons={setAddons}
+          copies={copies}
+          onCopies={setCopies}
           printer={printer.status}
           onPrinterTap={() => void printer.resume()}
           onPrint={(visibility) => void print(step.mode, step.shots, visibility)}

@@ -8,6 +8,8 @@ import type { PrinterStatus } from "./hooks";
 import { BoothScreen } from "./Scene";
 
 const PREVIEW_SCALE = 0.5;
+/** Most prints one guest can ask for. */
+const MAX_COPIES = 3;
 
 const previewKey = (frame: FrameId, addons: AddOns) =>
   `${frame}:${ADDONS.map((a) => (addons[a.id] ? 1 : 0)).join("")}`;
@@ -91,6 +93,8 @@ export default function ReviewScreen({
   onFrame,
   addons,
   onAddons,
+  copies,
+  onCopies,
   printer,
   onPrinterTap,
   onPrint,
@@ -102,6 +106,8 @@ export default function ReviewScreen({
   onFrame: (f: FrameId) => void;
   addons: AddOns;
   onAddons: (a: AddOns) => void;
+  copies: number;
+  onCopies: (n: number) => void;
   printer: PrinterStatus;
   onPrinterTap: () => void;
   /** Called once the guest has answered the public-gallery prompt. */
@@ -247,10 +253,37 @@ export default function ReviewScreen({
         </div>
 
         <div className="mt-auto flex flex-col gap-[0.7rem]">
-          <PrinterChip status={printer} onTap={onPrinterTap} />
+          <div className="flex items-center gap-[0.75rem]">
+            <div className="min-w-0 flex-1">
+              <PrinterChip status={printer} onTap={onPrinterTap} />
+            </div>
+            <div className="flex shrink-0 items-center gap-[0.45rem]" role="radiogroup" aria-label="Copies">
+              <span className="text-[0.85rem] font-semibold uppercase tracking-[0.12em] text-sh-black/60">
+                Copies
+              </span>
+              {Array.from({ length: MAX_COPIES }, (_, i) => i + 1).map((n) => {
+                const on = n === copies;
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    role="radio"
+                    aria-checked={on}
+                    data-copies={n}
+                    onClick={() => onCopies(n)}
+                    className={`type-display size-[2.75rem] rounded-[0.8rem] text-[1.2rem] transition-colors ${
+                      on ? "bg-sh-black text-sh-white" : "bg-sh-black/[0.06] text-sh-black"
+                    }`}
+                  >
+                    {n}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           <div className="flex gap-[0.75rem]">
             <BracketButton size="lg" className="flex-1" onClick={() => setAsking(true)} disabled={!ready}>
-              Print
+              {copies > 1 ? `Print ×${copies}` : "Print"}
             </BracketButton>
             <BracketButton size="lg" variant="secondary" onClick={onRetake}>
               Retake All

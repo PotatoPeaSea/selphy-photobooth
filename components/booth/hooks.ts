@@ -148,9 +148,9 @@ export function usePrinter(pollMs: number | null) {
   }, [refresh]);
 
   /** Throws with a guest-safe message when printing fails. */
-  const print = useCallback(async (dataUrl: string) => {
+  const print = useCallback(async (dataUrl: string, copies = 1) => {
     if (!client.current!.connected) await client.current!.connect();
-    return client.current!.printImage(dataUrl);
+    return client.current!.printImage(dataUrl, { copies });
   }, []);
 
   return { status, refresh, resume, print };
