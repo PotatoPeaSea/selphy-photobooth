@@ -7,22 +7,22 @@ import { PHOTO_ASPECT, SHOT_COUNT, type PrintMode } from "@/lib/print/layouts";
 import { sleep, type CameraState } from "./hooks";
 import { BoothScreen } from "./Scene";
 
-const FIRST_COUNT = 3;
-const NEXT_COUNT = 2;
-
 const MODE_LABEL: Record<PrintMode, string> = { strip: "Two Strips", grid: "Full Frame" };
 
 /**
  * Live preview cropped to the print's photo shape, mirrored like a mirror.
- * One tap on [ Start ] runs all four shots: 3 s before the first, 2 s between.
+ * One tap on [ Start ] runs all four shots, counting down `delay` seconds
+ * before each (picked on the mode screen).
  */
 export default function ShootScreen({
   mode,
+  delay,
   camera,
   onDone,
   onBack,
 }: {
   mode: PrintMode;
+  delay: number;
   camera: CameraState;
   onDone: (shots: HTMLCanvasElement[]) => void;
   onBack: () => void;
@@ -61,7 +61,7 @@ export default function ShootScreen({
     setRunning(true);
     const shots: HTMLCanvasElement[] = [];
     for (let i = 0; i < SHOT_COUNT; i++) {
-      for (let n = i === 0 ? FIRST_COUNT : NEXT_COUNT; n >= 1; n--) {
+      for (let n = delay; n >= 1; n--) {
         setCountdown(n);
         await sleep(1000);
         if (!alive.current) return;
@@ -132,7 +132,7 @@ export default function ShootScreen({
         <p className="mt-[0.5rem] text-[0.95rem] font-medium leading-snug text-sh-black/75">
           {running
             ? "New pose for every shot."
-            : "Four photos, back to back. Tap start and look at the camera."}
+            : `Four photos, ${delay} seconds apart. Tap start and look at the camera.`}
         </p>
 
         <div

@@ -60,10 +60,18 @@ const OPTIONS: { mode: PrintMode; title: string; blurb: string; card: string; sh
   },
 ];
 
+/** Seconds of countdown before each photo. */
+export const DELAYS = [3, 5, 10] as const;
+export const DEFAULT_DELAY = 5;
+
 export default function ModeScreen({
+  delay,
+  onDelay,
   onPick,
   onBack,
 }: {
+  delay: number;
+  onDelay: (seconds: number) => void;
   onPick: (mode: PrintMode) => void;
   onBack: () => void;
 }) {
@@ -74,9 +82,44 @@ export default function ModeScreen({
           <span className="block text-[1.6rem] font-normal leading-none tracking-[-0.02em]">Pick Your</span>
           <span className="type-display block text-[2.6rem]">Print</span>
         </h1>
-        <BracketButton variant="secondary" onClick={onBack}>
-          Back
-        </BracketButton>
+        <div className="flex items-center gap-[1rem]">
+          <div className="flex items-center gap-[0.45rem]" role="radiogroup" aria-label="Time between photos">
+            <span className="mr-[0.2rem] text-[0.85rem] font-semibold uppercase leading-tight tracking-[0.12em] text-sh-black/60">
+              Time between
+              <br />
+              photos
+            </span>
+            {DELAYS.map((s) => {
+              const on = s === delay;
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  data-delay={s}
+                  onClick={() => onDelay(s)}
+                  className={`flex min-h-[2.75rem] items-center gap-[0.45rem] rounded-[0.8rem] px-[0.75rem] text-[0.95rem] font-semibold transition-colors ${
+                    on ? "bg-sh-black text-sh-white" : "bg-sh-black/[0.06] text-sh-black"
+                  }`}
+                >
+                  <span
+                    className={`flex size-[1.1rem] shrink-0 items-center justify-center rounded-[0.3rem] text-[0.8rem] leading-none ${
+                      on ? "bg-sh-white text-sh-black" : "ring-2 ring-inset ring-sh-black/40"
+                    }`}
+                    aria-hidden
+                  >
+                    {on ? "✓" : ""}
+                  </span>
+                  {s}s
+                </button>
+              );
+            })}
+          </div>
+          <BracketButton variant="secondary" onClick={onBack}>
+            Back
+          </BracketButton>
+        </div>
       </header>
 
       <div className="mt-[1rem] grid min-h-0 flex-1 grid-cols-2 gap-[1rem]">

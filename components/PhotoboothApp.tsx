@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import DoneScreen, { type PrintState, type ShareState } from "@/components/booth/DoneScreen";
-import ModeScreen from "@/components/booth/ModeScreen";
+import ModeScreen, { DEFAULT_DELAY } from "@/components/booth/ModeScreen";
 import ReviewScreen from "@/components/booth/ReviewScreen";
 import ScanScreen from "@/components/booth/ScanScreen";
 import ShootScreen from "@/components/booth/ShootScreen";
@@ -44,6 +44,7 @@ export default function PhotoboothApp() {
   // Every guest starts from the default extras (tagline + confetti).
   const [addons, setAddons] = useState<AddOns>(DEFAULT_ADDONS);
   const [copies, setCopies] = useState(1);
+  const [delay, setDelay] = useState(DEFAULT_DELAY);
   // Bumped on every reset so late async results from an old session are ignored.
   const session = useRef(0);
   const printing = useRef(false);
@@ -60,6 +61,7 @@ export default function PhotoboothApp() {
     setFrame("stormy");
     setAddons(DEFAULT_ADDONS);
     setCopies(1);
+    setDelay(DEFAULT_DELAY);
     setStep({ name: "scan" });
   }, []);
 
@@ -124,11 +126,19 @@ export default function PhotoboothApp() {
     case "scan":
       return <ScanScreen onAdmitted={admit} />;
     case "mode":
-      return <ModeScreen onPick={(mode) => setStep({ name: "shoot", mode })} onBack={reset} />;
+      return (
+        <ModeScreen
+          delay={delay}
+          onDelay={setDelay}
+          onPick={(mode) => setStep({ name: "shoot", mode })}
+          onBack={reset}
+        />
+      );
     case "shoot":
       return (
         <ShootScreen
           mode={step.mode}
+          delay={delay}
           camera={camera}
           onDone={(shots) => setStep({ name: "review", mode: step.mode, shots })}
           onBack={() => setStep({ name: "mode" })}
