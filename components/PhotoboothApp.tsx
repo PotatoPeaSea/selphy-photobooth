@@ -17,11 +17,13 @@ import {
 } from "@/lib/print/frames";
 import type { PrintMode } from "@/lib/print/layouts";
 import { galleryBadge, type GalleryBadge, type NfcTap } from "@/lib/nfcChallenge";
-import { createStripShareQr } from "@/lib/stripShare";
+import { shareQrDataUrl, shareStrip } from "@/lib/stripShare";
 
 /** Screens that time out back to scan when nobody touches them. */
 const IDLE_MS = 60_000;
 const PRINTER_POLL_MS = 10_000;
+/** How long the print waits for the share link to put its QR code on the sheet. */
+const PRINT_QR_WAIT_MS = 10_000;
 
 type Step =
   | { name: "scan" }
@@ -72,11 +74,10 @@ export default function PhotoboothApp() {
     const chosen = frame;
     const extras = addons;
     let shareUrl: string;
-    let printUrl: string;
     try {
+      // The digital copy has no QR code; it's what the QR code links to.
       const canvas = await renderPrint({ mode, frame: chosen, photos: shots, addons: extras });
       shareUrl = printToDataUrl(canvas); // upright, landscape for the grid
-      printUrl = toPrinterDataUrl(canvas); // always portrait for the Selphy
     } finally {
       printing.current = false;
     }
@@ -86,15 +87,24 @@ export default function PhotoboothApp() {
     const patch = (p: Partial<Extract<Step, { name: "done" }>>) =>
       setStep((s) => (session.current === id && s.name === "done" ? { ...s, ...p } : s));
 
-    createStripShareQr(shareUrl, window.location.origin, visibility, badge.current).then(
+    const link = shareStrip(shareUrl, window.location.origin, visibility, badge.current);
+    link.then(shareQrDataUrl).then(
       (qr) => patch({ share: { kind: "ready", qr } }),
       () => patch({ share: { kind: "failed" } })
     );
-    printer.print(printUrl).then(
-      () => patch({ print: { kind: "sent" } }),
-      (err: unknown) =>
-        patch({ print: { kind: "failed", message: err instanceof Error ? err.message : "Print failed" } })
-    );
+
+    // The print carries the QR code too, unless the upload fails or is slow.
+    const qrUrl = await Promise.race([
+      link.catch(() => null),
+      new Promise<null>((resolve) => window.setTimeout(() => resolve(null), PRINT_QR_WAIT_MS)),
+    ]);
+    try {
+      const canvas = await renderPrint({ mode, frame: chosen, photos: shots, addons: extras, qrUrl });
+      await printer.print(toPrinterDataUrl(canvas)); // always portrait for the Selphy
+      patch({ print: { kind: "sent" } });
+    } catch (err: unknown) {
+      patch({ print: { kind: "failed", message: err instanceof Error ? err.message : "Print failed" } });
+    }
   }
 
   switch (step.name) {

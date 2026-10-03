@@ -54,18 +54,31 @@ export function buildShareViewUrl(origin: string, imageUrl: string): string {
   return `${origin}/view?u=${encodeURIComponent(imageUrl)}`;
 }
 
-export async function createStripShareQr(
+/** Upload the strip; returns the link the QR code points at. */
+export async function shareStrip(
   imageDataUrl: string,
   origin: string,
   visibility: "public" | "private" = "private",
   badge: GalleryBadge | null = null
 ): Promise<string> {
   const { url, page } = await uploadStripShare(imageDataUrl, visibility, badge);
-  const viewUrl = page ?? buildShareViewUrl(origin, url);
+  return page ?? buildShareViewUrl(origin, url);
+}
+
+export function shareQrDataUrl(viewUrl: string): Promise<string> {
   return QRCode.toDataURL(viewUrl, {
     margin: 1,
     width: 320,
     errorCorrectionLevel: "M",
     color: { dark: "#101A21", light: "#FFFFFF" },
   });
+}
+
+export async function createStripShareQr(
+  imageDataUrl: string,
+  origin: string,
+  visibility: "public" | "private" = "private",
+  badge: GalleryBadge | null = null
+): Promise<string> {
+  return shareQrDataUrl(await shareStrip(imageDataUrl, origin, visibility, badge));
 }

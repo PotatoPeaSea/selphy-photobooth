@@ -1,3 +1,4 @@
+import QRCode from "qrcode";
 import { canvasFamily, fraunces, inter } from "@/app/fonts";
 import { drawMatrix, drawShape, shapeWidth } from "@/lib/brand/canvas";
 import { MATRIX_SPRAY, MATRIX_STAR, type Matrix } from "@/lib/brand/matrix";
@@ -741,6 +742,37 @@ function drawCutGuides(d: DrawCtx) {
   ctx.restore();
 }
 
+/** Side of the printed QR tile, and its gap from the sheet edge (clear of the borderless crop). */
+const QR_SIZE = { bottom: 150, right: 170 } as const;
+const QR_INSET = 34;
+
+/**
+ * Small QR code to the guest's digital copy in the panel's bottom-right
+ * corner, on a white tile. Drawn module by module so it stays sharp.
+ */
+function drawQr(d: DrawCtx, panel: Panel, url: string) {
+  const { ctx } = d;
+  const qr = QRCode.create(url, { errorCorrectionLevel: "L" });
+  const n = qr.modules.size;
+  const size = QR_SIZE[panel.brandSide];
+  const quiet = 2;
+  const cell = Math.floor(size / (n + quiet * 2));
+  const tile = cell * (n + quiet * 2);
+  const b = panel.bounds;
+  const x = b.x + b.w - QR_INSET - tile;
+  const y = b.y + b.h - QR_INSET - tile;
+  ctx.save();
+  ctx.fillStyle = "#FFFFFF";
+  ctx.beginPath();
+  ctx.roundRect(x, y, tile, tile, cell * 1.5);
+  ctx.fill();
+  ctx.fillStyle = BRAND.black;
+  for (let r = 0; r < n; r++)
+    for (let c = 0; c < n; c++)
+      if (qr.modules.get(r, c)) ctx.fillRect(x + (quiet + c) * cell, y + (quiet + r) * cell, cell, cell);
+  ctx.restore();
+}
+
 export interface RenderPrintOptions {
   mode: PrintMode;
   frame: FrameId;
@@ -750,6 +782,8 @@ export interface RenderPrintOptions {
   scale?: number;
   /** Extras over the photos; DEFAULT_ADDONS if omitted. */
   addons?: AddOns;
+  /** Link for a small QR code in each panel's corner (the printed copy only). */
+  qrUrl?: string | null;
 }
 
 /**
@@ -762,6 +796,7 @@ export async function renderPrint({
   photos,
   scale = 1,
   addons = DEFAULT_ADDONS,
+  qrUrl = null,
 }: RenderPrintOptions): Promise<HTMLCanvasElement> {
   await preparePrintAssets();
   const layout = printLayout(mode);
@@ -804,6 +839,7 @@ export async function renderPrint({
     if (artOnTop) drawArt(d, panel);
     drawText(d, panel);
     drawDecor(d, panel, addons);
+    if (qrUrl) drawQr(d, panel, qrUrl);
     ctx.restore();
   }
   drawCutGuides(d);
