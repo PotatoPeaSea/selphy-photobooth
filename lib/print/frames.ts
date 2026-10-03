@@ -135,6 +135,8 @@ interface DrawCtx {
   display: string;
   body: string;
   images: Partial<Record<ArtImage, HTMLImageElement>>;
+  /** Link for the small QR code under the logo, or null for none. */
+  qrUrl: string | null;
 }
 
 function drawGrain(ctx: CanvasRenderingContext2D, grain: HTMLImageElement | null, w: number, h: number) {
@@ -354,6 +356,13 @@ function placeArt(d: DrawCtx, art: Art, box: Rect, sheetBottom: number, overflow
 }
 
 const STRIP_TEXT_W = 236;
+/** Strip logo + date when the QR code shares the band. */
+const STRIP_TEXT_QR = { logo: 40, date: 22 };
+/** QR side in the grid's brand column. */
+const QR_COLUMN = 170;
+const QR_GAP = { strip: 8, column: 24 };
+/** Keep the QR this far from the sheet edge, clear of the borderless crop. */
+const QR_EDGE = 28;
 const COLUMN_PAD = 28;
 const COLUMN_TEXT = { logo: 54, date: 30 };
 const COLUMN_OVERFLOW = 0.42;
@@ -373,7 +382,7 @@ function drawArt(d: DrawCtx, panel: Panel) {
   // Column: art rises from the bottom edge under the logo block. The column
   // is narrow, so the art is drawn over the photos and may lap their edge.
   const textBottom = b.y + 6 + COLUMN_TEXT.logo + COLUMN_TEXT.date * 1.6;
-  const top = textBottom + 36;
+  const top = d.qrUrl ? textBottom + QR_GAP.column * 2 + QR_COLUMN : textBottom + 36;
   if (d.frame.id === "garden") img(d, "bush-1", b.x - 160, bottom - 120, 150);
   placeArt(d, art, { x: b.x, y: top, w: b.w, h: bottom - top }, bottom, COLUMN_OVERFLOW, -0.06);
 }
@@ -382,8 +391,16 @@ function drawArt(d: DrawCtx, panel: Panel) {
 function drawText(d: DrawCtx, panel: Panel) {
   const b = panel.brand;
   const hasArt = artFor(d) !== null;
+  const sheetBottom = panel.bounds.y + panel.bounds.h;
   if (panel.brandSide === "bottom") {
     const textW = hasArt ? Math.min(STRIP_TEXT_W, b.w * 0.48) : b.w;
+    if (d.qrUrl) {
+      // Logo at the top of the band, QR under it filling the rest.
+      const bottom = drawTextBlock(d, b.x, b.y + 10, textW, "left", STRIP_TEXT_QR);
+      const y = bottom + QR_GAP.strip;
+      drawQr(d, d.qrUrl, b.x, y, sheetBottom - QR_EDGE - y);
+      return;
+    }
     const mid = b.y + (b.h - 30) / 2 + 6;
     const blockH = 44 + 26 * 1.6;
     drawTextBlock(d, b.x, mid - blockH / 2, textW, "left", { logo: 44, date: 26 });
@@ -391,13 +408,17 @@ function drawText(d: DrawCtx, panel: Panel) {
   }
   const x = b.x + COLUMN_PAD * 0.5;
   const w = b.w - COLUMN_PAD * 1.5;
+  const qrX = x + (w - QR_COLUMN) / 2;
   if (!hasArt) {
-    // Clean: logo and date sit level with the bottom of the photos.
+    // Clean: logo and date sit level with the bottom of the photos, QR above them.
     const blockH = 40 + 30 * 1.6;
-    drawTextBlock(d, x, panel.bounds.h - b.y - blockH, w, "center", { logo: 40, date: 30 });
+    const top = panel.bounds.h - b.y - blockH;
+    drawTextBlock(d, x, top, w, "center", { logo: 40, date: 30 });
+    if (d.qrUrl) drawQr(d, d.qrUrl, qrX, top - QR_GAP.column - QR_COLUMN, QR_COLUMN);
     return;
   }
-  drawTextBlock(d, x, b.y + 6, w, "center", COLUMN_TEXT);
+  const bottom = drawTextBlock(d, x, b.y + 6, w, "center", COLUMN_TEXT);
+  if (d.qrUrl) drawQr(d, d.qrUrl, qrX, bottom + QR_GAP.column, QR_COLUMN);
 }
 
 // ---------------------------------------------------------------- decor
@@ -742,34 +763,29 @@ function drawCutGuides(d: DrawCtx) {
   ctx.restore();
 }
 
-/** Side of the printed QR tile, and its gap from the sheet edge (clear of the borderless crop). */
-const QR_SIZE = { bottom: 150, right: 170 } as const;
-const QR_INSET = 34;
-
 /**
- * Small QR code to the guest's digital copy in the panel's bottom-right
- * corner, on a white tile. Drawn module by module so it stays sharp.
+ * QR code to the guest's digital copy on a white tile, `size` square at
+ * (x, y). Module edges snap to whole pixels so it stays sharp at any size.
  */
-function drawQr(d: DrawCtx, panel: Panel, url: string) {
+function drawQr(d: DrawCtx, url: string, x: number, y: number, size: number) {
   const { ctx } = d;
   const qr = QRCode.create(url, { errorCorrectionLevel: "L" });
   const n = qr.modules.size;
-  const size = QR_SIZE[panel.brandSide];
-  const quiet = 2;
-  const cell = Math.floor(size / (n + quiet * 2));
-  const tile = cell * (n + quiet * 2);
-  const b = panel.bounds;
-  const x = b.x + b.w - QR_INSET - tile;
-  const y = b.y + b.h - QR_INSET - tile;
+  const quiet = 1;
+  const cell = size / (n + quiet * 2);
+  const edge = (i: number) => Math.round((quiet + i) * cell);
+  x = Math.round(x);
+  y = Math.round(y);
   ctx.save();
   ctx.fillStyle = "#FFFFFF";
   ctx.beginPath();
-  ctx.roundRect(x, y, tile, tile, cell * 1.5);
+  ctx.roundRect(x, y, Math.round(size), Math.round(size), cell);
   ctx.fill();
   ctx.fillStyle = BRAND.black;
   for (let r = 0; r < n; r++)
     for (let c = 0; c < n; c++)
-      if (qr.modules.get(r, c)) ctx.fillRect(x + (quiet + c) * cell, y + (quiet + r) * cell, cell, cell);
+      if (qr.modules.get(r, c))
+        ctx.fillRect(x + edge(c), y + edge(r), edge(c + 1) - edge(c), edge(r + 1) - edge(r));
   ctx.restore();
 }
 
@@ -782,7 +798,7 @@ export interface RenderPrintOptions {
   scale?: number;
   /** Extras over the photos; DEFAULT_ADDONS if omitted. */
   addons?: AddOns;
-  /** Link for a small QR code in each panel's corner (the printed copy only). */
+  /** Link for a small QR code under each panel's logo (the printed copy only). */
   qrUrl?: string | null;
 }
 
@@ -818,7 +834,7 @@ export async function renderPrint({
   ctx.scale(scale, scale);
   ctx.imageSmoothingQuality = "high";
 
-  const d: DrawCtx = { ctx, layout, frame, display: canvasFamily(fraunces), body: canvasFamily(inter), images };
+  const d: DrawCtx = { ctx, layout, frame, display: canvasFamily(fraunces), body: canvasFamily(inter), images, qrUrl };
 
   ctx.fillStyle = frame.bg;
   ctx.fillRect(0, 0, layout.width, layout.height);
@@ -839,7 +855,6 @@ export async function renderPrint({
     if (artOnTop) drawArt(d, panel);
     drawText(d, panel);
     drawDecor(d, panel, addons);
-    if (qrUrl) drawQr(d, panel, qrUrl);
     ctx.restore();
   }
   drawCutGuides(d);
