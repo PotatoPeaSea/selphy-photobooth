@@ -10,6 +10,7 @@ import {
   bracketX3,
   logoPrimary,
   logoTertiary,
+  onePassword,
   star,
   type BrandShape,
 } from "@/lib/brand/shapes";
@@ -32,7 +33,13 @@ export const BRAND = {
   black: "#101A21",
 } as const;
 
-export type FrameId = "stormy" | "sparky" | "orange" | "clean" | "garden" | "crew" | "hacker";
+/** 1Password's navy and blue, taken from 1password.com's stylesheet. */
+export const ONE_PASSWORD = {
+  navy: "#172663",
+  blue: "#145FE4",
+} as const;
+
+export type FrameId = "stormy" | "sparky" | "orange" | "clean" | "garden" | "crew" | "hacker" | "onepassword";
 
 /** Illustrations cut from the brand guide, in public/brand/. */
 export type ArtImage =
@@ -60,6 +67,15 @@ export interface FrameInfo {
   mascot: ArtImage;
   /** Images the frame's artwork draws. */
   images: ArtImage[];
+  /** Sponsor whose mark sits beside the StormHacks logo (partnership lock-up). */
+  sponsor?: Sponsor;
+}
+
+export interface Sponsor {
+  name: string;
+  mark: BrandShape;
+  /** Mark colour on the frame. */
+  color: string;
 }
 
 export const FRAMES: FrameInfo[] = [
@@ -90,6 +106,17 @@ export const FRAMES: FrameInfo[] = [
   },
   // Code-matrices post: Stormy Blue dots, orange {i++;}, VR Sparky.
   { id: "hacker", label: "Hacker", bg: BRAND.black, fg: BRAND.white, mascot: "otter-sparky-vr", images: ["otter-sparky-vr"] },
+  // Sponsor frame: Stormy in 1Password-blue [ ]; on their navy, with the
+  // partnership lock-up (divider + keyhole mark) beside our logo.
+  {
+    id: "onepassword",
+    label: "1Password",
+    bg: ONE_PASSWORD.navy,
+    fg: BRAND.white,
+    mascot: "otter-stormy",
+    images: ["otter-stormy"],
+    sponsor: { name: "1Password", mark: onePassword, color: BRAND.white },
+  },
 ];
 
 export function frameInfo(id: FrameId): FrameInfo {
@@ -340,6 +367,8 @@ function artFor(d: DrawCtx): Art | null {
       return gardenArt();
     case "crew":
       return crewArt(d);
+    case "onepassword":
+      return loopsArt("otter-stormy", bracketOpen, bracketClose, ONE_PASSWORD.blue, a("otter-stormy"));
     case "clean":
       return null;
   }
@@ -366,6 +395,47 @@ const QR_EDGE = 28;
 const COLUMN_PAD = 28;
 const COLUMN_TEXT = { logo: 54, date: 30 };
 const COLUMN_OVERFLOW = 0.42;
+/** Sponsor lock-up: mark height, and the divider's length/gap around it. */
+const LOCKUP = { strip: 34, column: 40, gap: 14, rule: 3 };
+
+/** Thin rule with rounded caps from (x0, y0) to (x1, y1), as in the brand's partner lock-ups. */
+function drawDivider(d: DrawCtx, x0: number, y0: number, x1: number, y1: number) {
+  const { ctx } = d;
+  ctx.save();
+  ctx.strokeStyle = d.frame.fg;
+  ctx.globalAlpha = 0.55;
+  ctx.lineWidth = LOCKUP.rule;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(x0, y0);
+  ctx.lineTo(x1, y1);
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * Sponsor mark + name at height `h`, vertically centred on `midY`. Returns
+ * its width; draws only when `x` is given.
+ */
+function sponsorLockup(d: DrawCtx, sponsor: Sponsor, h: number, x?: number, midY = 0): number {
+  const { ctx } = d;
+  const size = h * 0.66;
+  ctx.font = `700 ${size}px ${d.body}`;
+  const markW = shapeWidth(sponsor.mark, h);
+  const gap = h * 0.3;
+  const w = markW + gap + ctx.measureText(sponsor.name).width;
+  if (x !== undefined) {
+    drawShape(ctx, sponsor.mark, x, midY - h / 2, h, sponsor.color);
+    ctx.fillStyle = d.frame.fg;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    ctx.fillText(sponsor.name, x + markW + gap, midY + h * 0.03);
+  }
+  return w;
+}
+
+/** Height the column's sponsor lock-up adds under the date line (0 without a sponsor). */
+const columnLockupH = (d: DrawCtx) => (d.frame.sponsor ? LOCKUP.gap * 2 + LOCKUP.rule + LOCKUP.column : 0);
 
 /** Frame artwork for one panel — behind the photos in strips, over them in the grid. */
 function drawArt(d: DrawCtx, panel: Panel) {
@@ -376,12 +446,14 @@ function drawArt(d: DrawCtx, panel: Panel) {
   if (panel.brandSide === "bottom") {
     if (d.frame.id === "garden") img(d, "bush-1", panel.bounds.x - 30, bottom - b.h * 0.24, b.h * 0.3);
     const x = b.x + Math.min(STRIP_TEXT_W, b.w * 0.48) + 12;
-    placeArt(d, art, { x, y: b.y + 8, w: panel.bounds.x + panel.bounds.w - x, h: b.h - 8 }, bottom);
+    // A sponsor's lock-up takes the top of the art box.
+    const y = b.y + 8 + (d.frame.sponsor ? LOCKUP.strip + LOCKUP.gap : 0);
+    placeArt(d, art, { x, y, w: panel.bounds.x + panel.bounds.w - x, h: bottom - y }, bottom);
     return;
   }
   // Column: art rises from the bottom edge under the logo block. The column
   // is narrow, so the art is drawn over the photos and may lap their edge.
-  const textBottom = b.y + 6 + COLUMN_TEXT.logo + COLUMN_TEXT.date * 1.6;
+  const textBottom = b.y + 6 + COLUMN_TEXT.logo + COLUMN_TEXT.date * 1.6 + columnLockupH(d);
   const top = d.qrUrl ? textBottom + QR_GAP.column * 2 + QR_COLUMN : textBottom + 36;
   if (d.frame.id === "garden") img(d, "bush-1", b.x - 160, bottom - 120, 150);
   placeArt(d, art, { x: b.x, y: top, w: b.w, h: bottom - top }, bottom, COLUMN_OVERFLOW, -0.06);
@@ -394,6 +466,15 @@ function drawText(d: DrawCtx, panel: Panel) {
   const sheetBottom = panel.bounds.y + panel.bounds.h;
   if (panel.brandSide === "bottom") {
     const textW = hasArt ? Math.min(STRIP_TEXT_W, b.w * 0.48) : b.w;
+    const sponsor = d.frame.sponsor;
+    if (sponsor) {
+      // Lock-up beside the logo: a rule down the band, then the mark over the art.
+      const rx = b.x + textW + 14;
+      drawDivider(d, rx, b.y + 14, rx, sheetBottom - QR_EDGE - 6);
+      const right = panel.bounds.x + panel.bounds.w - 16;
+      const lw = sponsorLockup(d, sponsor, LOCKUP.strip);
+      sponsorLockup(d, sponsor, LOCKUP.strip, rx + (right - rx - lw) / 2, b.y + 10 + LOCKUP.strip / 2);
+    }
     if (d.qrUrl) {
       // Logo at the top of the band, QR under it filling the rest.
       const bottom = drawTextBlock(d, b.x, b.y + 10, textW, "left", STRIP_TEXT_QR);
@@ -417,7 +498,18 @@ function drawText(d: DrawCtx, panel: Panel) {
     if (d.qrUrl) drawQr(d, d.qrUrl, qrX, top - QR_GAP.column - QR_COLUMN, QR_COLUMN);
     return;
   }
-  const bottom = drawTextBlock(d, x, b.y + 6, w, "center", COLUMN_TEXT);
+  let bottom = drawTextBlock(d, x, b.y + 6, w, "center", COLUMN_TEXT);
+  const sponsor = d.frame.sponsor;
+  if (sponsor) {
+    // Lock-up below the logo: a short rule, then the mark and name.
+    const ruleY = bottom + LOCKUP.gap + LOCKUP.rule / 2;
+    drawDivider(d, x + w * 0.2, ruleY, x + w * 0.8, ruleY);
+    let h = LOCKUP.column;
+    while (sponsorLockup(d, sponsor, h) > w && h > 16) h -= 1;
+    const lw = sponsorLockup(d, sponsor, h);
+    sponsorLockup(d, sponsor, h, x + (w - lw) / 2, ruleY + LOCKUP.gap + LOCKUP.column / 2);
+    bottom += columnLockupH(d);
+  }
   if (d.qrUrl) drawQr(d, d.qrUrl, qrX, bottom + QR_GAP.column, QR_COLUMN);
 }
 
@@ -445,6 +537,8 @@ export const ADDONS: { id: AddOn; label: string }[] = [
 type StickerArt =
   | { kind: "image"; name: ArtImage }
   | { kind: "star"; color: string }
+  /** A sponsor's round mark, its cut-outs backed in white. */
+  | { kind: "mark"; shape: BrandShape; color: string }
   /** "{i++;}" chip. */
   | { kind: "code"; bg: string; fg: string };
 
@@ -472,6 +566,7 @@ const pinC = (art: StickerArt): Sticker => ({ art, cell: 2, at: [0.07, 0.98], si
 const image = (name: ArtImage): StickerArt => ({ kind: "image", name });
 const starArt = (color: string): StickerArt => ({ kind: "star", color });
 const code = (bg: string, fg: string): StickerArt => ({ kind: "code", bg, fg });
+const mark = (shape: BrandShape, color: string): StickerArt => ({ kind: "mark", shape, color });
 
 const DECOR: Record<FrameId, Decor> = {
   stormy: {
@@ -502,6 +597,10 @@ const DECOR: Record<FrameId, Decor> = {
     stickers: [pinA(code(BRAND.blue, BRAND.black)), pinB(image("otter-stormy")), pinC(starArt(BRAND.orange))],
     confetti: [BRAND.blue, BRAND.orange],
   },
+  onepassword: {
+    stickers: [{ ...pinA(mark(onePassword, ONE_PASSWORD.blue)), tilt: 0 }, pinB(image("otter-sparky")), pinC(starArt(BRAND.yellow))],
+    confetti: [ONE_PASSWORD.blue, BRAND.white, BRAND.yellow],
+  },
 };
 
 /** Every image a frame draws: its artwork plus its stickers. */
@@ -531,6 +630,7 @@ function stickerBody(d: DrawCtx, art: StickerArt, h: number): HTMLCanvasElement 
     if (!i) return null;
     w = h * aspect(i);
   } else if (art.kind === "star") w = shapeWidth(star, h);
+  else if (art.kind === "mark") w = shapeWidth(art.shape, h);
   else w = h * 2.5;
   const c = document.createElement("canvas");
   c.width = Math.ceil(w);
@@ -538,6 +638,13 @@ function stickerBody(d: DrawCtx, art: StickerArt, h: number): HTMLCanvasElement 
   const ctx = c.getContext("2d")!;
   if (art.kind === "image") ctx.drawImage(d.images[art.name]!, 0, 0, w, h);
   else if (art.kind === "star") drawShape(ctx, star, 0, 0, h, art.color);
+  else if (art.kind === "mark") {
+    ctx.fillStyle = "#FFFFFF";
+    ctx.beginPath();
+    ctx.ellipse(w / 2, h / 2, w * 0.45, h * 0.45, 0, 0, Math.PI * 2);
+    ctx.fill();
+    drawShape(ctx, art.shape, 0, 0, h, art.color);
+  }
   else {
     ctx.fillStyle = art.bg;
     ctx.beginPath();
@@ -569,7 +676,7 @@ const stickerCache = new Map<string, HTMLCanvasElement | null>();
 
 /** The art with a white die-cut border and a faint dark rim, at device resolution. */
 function stickerCanvas(d: DrawCtx, art: StickerArt, h: number): HTMLCanvasElement | null {
-  const key = `${JSON.stringify(art)}@${Math.round(h)}`;
+  const key = `${art.kind === "mark" ? `mark:${art.color}` : JSON.stringify(art)}@${Math.round(h)}`;
   if (stickerCache.has(key)) return stickerCache.get(key)!;
   const body = stickerBody(d, art, h);
   let out: HTMLCanvasElement | null = null;

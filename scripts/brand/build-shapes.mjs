@@ -19,6 +19,8 @@ const NAMES = {
   "loops-paren-x3.svg": "parenX3",
   "loops-bracket-x3.svg": "bracketX3",
   "loops-brace-x3.svg": "braceX3",
+  // Sponsor mark (1Password keyhole, from simple-icons).
+  "sponsor-1password.svg": "onePassword",
 };
 
 const entries = Object.entries(NAMES).map(([file, name]) => {

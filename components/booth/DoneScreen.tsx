@@ -19,6 +19,7 @@ const SCENE: Record<FrameId, SceneFrame> = {
   garden: "braces",
   crew: "brackets",
   hacker: "matrix",
+  onepassword: "brackets",
 };
 
 const LOOP_COLOR: Record<FrameId, string> = {
@@ -29,6 +30,7 @@ const LOOP_COLOR: Record<FrameId, string> = {
   garden: "#FFFFFF",
   crew: "#0278FF",
   hacker: "#ECECEF",
+  onepassword: "#145FE4",
 };
 
 function copyFor(print: PrintState, mode: PrintMode) {
