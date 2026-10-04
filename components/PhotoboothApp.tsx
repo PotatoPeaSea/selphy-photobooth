@@ -23,8 +23,6 @@ import { shareFrames, shareQrDataUrl, shareStrip } from "@/lib/stripShare";
 /** Screens that time out back to scan when nobody touches them. */
 const IDLE_MS = 60_000;
 const PRINTER_POLL_MS = 10_000;
-/** How long the print waits for the share link to put its QR code on the sheet. */
-const PRINT_QR_WAIT_MS = 10_000;
 
 type Step =
   | { name: "scan" }
@@ -102,13 +100,14 @@ export default function PhotoboothApp() {
       () => patch({ share: { kind: "failed" } })
     );
 
-    // The print carries the QR code too, unless the upload fails or is slow.
-    const qrUrl = await Promise.race([
-      link.catch(() => null),
-      new Promise<null>((resolve) => window.setTimeout(() => resolve(null), PRINT_QR_WAIT_MS)),
-    ]);
+    // The print always waits for the link so it carries the QR code. /api/share
+    // falls back from the gallery to Blob to this machine's disk, so only a
+    // total failure prints without one.
+    const qrUrl = await link.catch(() => null);
     try {
       const canvas = await renderPrint({ mode, frame: chosen, photos: shots, addons: extras, qrUrl });
+      // The strip in the guest's zip matches the print, QR code and all.
+      if (qrUrl) stripUrl = singleStripDataUrl(canvas, mode);
       await printer.print(toPrinterDataUrl(canvas), count); // always portrait for the Selphy
       patch({ print: { kind: "sent" } });
     } catch (err: unknown) {
