@@ -360,21 +360,14 @@ function crewArt(d: DrawCtx): Art {
  * A sponsor's round mark, `size` across, centred on (cx, cy), in their blue
  * with a cream keyhole, framed by sky-blue [ ]; loops lapping its edges.
  */
-function drawBigMark(d: DrawCtx, mark: BrandShape, cx: number, cy: number, size: number, stacked = false) {
+function drawBigMark(d: DrawCtx, mark: BrandShape, cx: number, cy: number, size: number) {
   const { ctx } = d;
-  if (stacked) {
-    // Tall column: [ above the mark's top-left, ]; below its bottom-right.
-    drawShape(ctx, bracketOpen, cx - size * 0.62, cy - size * 0.88, size * 0.5, ONE_PASSWORD.sky);
-    drawBigMarkDisc(d, mark, cx, cy, size);
-    const ch = size * 0.4;
-    drawShape(ctx, bracketClose, cx + size * 0.6 - shapeWidth(bracketClose, ch), cy + size * 0.4, ch, ONE_PASSWORD.sky);
-    return;
-  }
   drawShape(ctx, bracketOpen, cx - size * 0.66, cy - size * 0.5, size * 0.56, ONE_PASSWORD.sky);
   drawBigMarkDisc(d, mark, cx, cy, size);
   drawShape(ctx, bracketClose, cx + size * 0.12, cy + size * 0.06, size * 0.5, ONE_PASSWORD.sky);
 }
 
+/** The mark in their blue on a cream disc, so the keyhole reads as a cut-out. */
 function drawBigMarkDisc(d: DrawCtx, mark: BrandShape, cx: number, cy: number, size: number) {
   const { ctx } = d;
   ctx.fillStyle = ONE_PASSWORD.cream;
@@ -445,10 +438,7 @@ const COLUMN_PAD = 28;
 const COLUMN_TEXT = { logo: 54, date: 30 };
 const COLUMN_OVERFLOW = 0.42;
 /** Sponsor lock-up: mark height, and the divider's length/gap around it. */
-const LOCKUP = { strip: 34, column: 40, gap: 14, rule: 3 };
-
-/** Width of the sponsor's grid-column rail, where its name runs down the sheet edge. */
-const RAIL = 40;
+const LOCKUP = { strip: 34, gap: 14, rule: 3 };
 
 /**
  * The sponsor's name repeated along a line of length `len` centred on
@@ -486,8 +476,7 @@ function drawRun(d: DrawCtx, sponsor: Sponsor, cx: number, cy: number, len: numb
 
 /**
  * Sponsor name runs round the photos — part of the frame, not an add-on.
- * Strips: across the top and up the outer margin. Grid: across the top and
- * down the rail at the sheet's right edge.
+ * Strips: across the top and up the outer margin. Grid: across the top.
  */
 function drawSponsorBorder(d: DrawCtx, panel: Panel) {
   const sponsor = d.frame.sponsor;
@@ -503,9 +492,6 @@ function drawSponsorBorder(d: DrawCtx, panel: Panel) {
     const side = first.x - b.x;
     const len = last.y + last.h - first.y;
     drawRun(d, sponsor, b.x + side / 2, first.y + len / 2, len, Math.min(22, side * 0.42), -Math.PI / 2);
-  } else {
-    const len = b.h - QR_EDGE * 2;
-    drawRun(d, sponsor, b.x + b.w - RAIL / 2, b.y + b.h / 2, len, 20, Math.PI / 2);
   }
 }
 
@@ -545,8 +531,33 @@ function sponsorLockup(d: DrawCtx, sponsor: Sponsor, h: number, x?: number, midY
   return w;
 }
 
-/** Height the column's sponsor lock-up adds under the date line (0 without a sponsor). */
-const columnLockupH = (d: DrawCtx) => (d.frame.sponsor ? LOCKUP.gap * 2 + LOCKUP.rule + LOCKUP.column : 0);
+/**
+ * Big lock-up for the grid column: the mark upright on top, the name turned
+ * 90° reading down beneath it, as large as fits in `box`.
+ */
+function drawTallLockup(d: DrawCtx, sponsor: Sponsor, box: Rect) {
+  const { ctx } = d;
+  const fit = (f: number) => {
+    ctx.font = `800 ${f}px ${d.body}`;
+    const len = ctx.measureText(sponsor.name).width;
+    const mark = Math.min(f * 1.3, box.w * 0.9);
+    return { len, mark, gap: f * 0.35, total: mark + f * 0.35 + len };
+  };
+  let f = Math.min(box.w * 0.85, 240);
+  let m = fit(f);
+  while (m.total > box.h && f > 20) m = fit(--f);
+  const cx = box.x + box.w / 2;
+  const y0 = box.y + (box.h - m.total) / 2;
+  drawBigMarkDisc(d, sponsor.mark, cx, y0 + m.mark / 2, m.mark);
+  ctx.save();
+  ctx.translate(cx, y0 + m.mark + m.gap);
+  ctx.rotate(Math.PI / 2);
+  ctx.fillStyle = d.frame.fg;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  ctx.fillText(sponsor.name, 0, f * 0.04);
+  ctx.restore();
+}
 
 /** Frame artwork for one panel — behind the photos in strips, over them in the grid. */
 function drawArt(d: DrawCtx, panel: Panel) {
@@ -564,17 +575,17 @@ function drawArt(d: DrawCtx, panel: Panel) {
   }
   // Column: art rises from the bottom edge under the logo block. The column
   // is narrow, so the art is drawn over the photos and may lap their edge.
-  const textBottom = b.y + 6 + COLUMN_TEXT.logo + COLUMN_TEXT.date * 1.6 + columnLockupH(d);
+  const textBottom = b.y + 6 + COLUMN_TEXT.logo + COLUMN_TEXT.date * 1.6;
   const top = d.qrUrl ? textBottom + QR_GAP.column * 2 + QR_COLUMN : textBottom + 36;
   if (d.frame.sponsor) {
-    // Big mark filling what's left between the QR (or lock-up) and the
-    // bottom edge, loops stacked above and below, clear of the name rail.
-    const x0 = b.x + 4;
-    const x1 = b.x + b.w - RAIL - 4;
-    const h = bottom - QR_EDGE - top;
-    // Loops may lap into the gutter between photos and column.
-    const size = Math.min((x1 - x0) * 0.92, h / 1.9);
-    drawBigMark(d, d.frame.sponsor.mark, (x0 + x1) / 2, top + h / 2 + size * 0.02, size, true);
+    // Under the QR (or the date): the partner rule, then the big sideways
+    // lock-up filling the rest of the column.
+    const ruleTop = d.qrUrl ? textBottom + QR_GAP.column * 2 + QR_COLUMN : textBottom + 30;
+    const x = b.x + COLUMN_PAD * 0.5;
+    const w = b.w - COLUMN_PAD * 1.5;
+    drawDivider(d, x + w * 0.2, ruleTop, x + w * 0.8, ruleTop);
+    const y = ruleTop + LOCKUP.gap * 2;
+    drawTallLockup(d, d.frame.sponsor, { x, y, w, h: bottom - QR_EDGE - y });
     return;
   }
   if (d.frame.id === "garden") img(d, "bush-1", b.x - 160, bottom - 120, 150);
@@ -610,7 +621,7 @@ function drawText(d: DrawCtx, panel: Panel) {
     return;
   }
   const x = b.x + COLUMN_PAD * 0.5;
-  const w = b.w - COLUMN_PAD * 1.5 - (d.frame.sponsor ? RAIL - COLUMN_PAD * 0.5 : 0);
+  const w = b.w - COLUMN_PAD * 1.5;
   const qrX = x + (w - QR_COLUMN) / 2;
   if (!hasArt) {
     // Clean: logo and date sit level with the bottom of the photos, QR above them.
@@ -620,18 +631,7 @@ function drawText(d: DrawCtx, panel: Panel) {
     if (d.qrUrl) drawQr(d, d.qrUrl, qrX, top - QR_GAP.column - QR_COLUMN, QR_COLUMN);
     return;
   }
-  let bottom = drawTextBlock(d, x, b.y + 6, w, "center", COLUMN_TEXT);
-  const sponsor = d.frame.sponsor;
-  if (sponsor) {
-    // Lock-up below the logo: a short rule, then the mark and name.
-    const ruleY = bottom + LOCKUP.gap + LOCKUP.rule / 2;
-    drawDivider(d, x + w * 0.2, ruleY, x + w * 0.8, ruleY);
-    let h = LOCKUP.column;
-    while (sponsorLockup(d, sponsor, h) > w && h > 16) h -= 1;
-    const lw = sponsorLockup(d, sponsor, h);
-    sponsorLockup(d, sponsor, h, x + (w - lw) / 2, ruleY + LOCKUP.gap + LOCKUP.column / 2);
-    bottom += columnLockupH(d);
-  }
+  const bottom = drawTextBlock(d, x, b.y + 6, w, "center", COLUMN_TEXT);
   if (d.qrUrl) drawQr(d, d.qrUrl, qrX, bottom + QR_GAP.column, QR_COLUMN);
 }
 
