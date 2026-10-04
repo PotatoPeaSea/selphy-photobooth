@@ -599,6 +599,22 @@ function drawText(d: DrawCtx, panel: Panel) {
       const right = panel.bounds.x + panel.bounds.w - 16;
       const lw = sponsorLockup(d, sponsor, LOCKUP.strip);
       sponsorLockup(d, sponsor, LOCKUP.strip, rx + (right - rx - lw) / 2, b.y + 10 + LOCKUP.strip / 2);
+      // Left of the rule: QR on the outside, the Surge bolt beside the rule,
+      // both centred down the band. Alone, the bolt is bigger and centred.
+      const top = b.y + 12;
+      const h = sheetBottom - QR_EDGE - top;
+      const cy = top + h / 2;
+      const room = rx - 16 - b.x;
+      if (d.qrUrl) {
+        const q = Math.min(h, 150, room * 0.6);
+        const m = Math.min(q * 0.72, room - q - 20);
+        drawQr(d, d.qrUrl, b.x, cy - q / 2, q);
+        drawShape(d.ctx, medallion, b.x + q + (room - q - m) / 2, cy - m / 2, m, d.frame.fg);
+      } else {
+        const m = Math.min(h * 0.62, room * 0.6);
+        drawShape(d.ctx, medallion, b.x + (room - m) / 2, cy - m / 2, m, d.frame.fg);
+      }
+      return;
     }
     if (d.qrUrl) {
       // Logo at the top of the band, QR under it filling the rest.
