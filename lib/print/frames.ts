@@ -543,9 +543,10 @@ function drawTallLockup(d: DrawCtx, sponsor: Sponsor, box: Rect) {
     const mark = Math.min(f * 1.3, box.w * 0.9);
     return { len, mark, gap: f * 0.35, total: mark + f * 0.35 + len };
   };
-  let f = Math.min(box.w * 0.85, 240);
+  let f = Math.min(box.w * 0.72, 240);
   let m = fit(f);
-  while (m.total > box.h && f > 20) m = fit(--f);
+  // Keep a clear margin from the sheet edge.
+  while (m.total > box.h * 0.9 && f > 20) m = fit(--f);
   const cx = box.x + box.w / 2;
   const y0 = box.y + (box.h - m.total) / 2;
   drawBigMarkDisc(d, sponsor.mark, cx, y0 + m.mark / 2, m.mark);
