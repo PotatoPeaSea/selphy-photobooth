@@ -356,27 +356,47 @@ function crewArt(d: DrawCtx): Art {
   };
 }
 
-/** A sponsor's round mark, big, in their blue, framed by a sky-blue [ ]; loop. */
+/**
+ * A sponsor's round mark, `size` across, centred on (cx, cy), in their blue
+ * with a cream keyhole, framed by sky-blue [ ]; loops lapping its edges.
+ */
+function drawBigMark(d: DrawCtx, mark: BrandShape, cx: number, cy: number, size: number, stacked = false) {
+  const { ctx } = d;
+  if (stacked) {
+    // Tall column: [ above the mark's top-left, ]; below its bottom-right.
+    drawShape(ctx, bracketOpen, cx - size * 0.62, cy - size * 0.88, size * 0.5, ONE_PASSWORD.sky);
+    drawBigMarkDisc(d, mark, cx, cy, size);
+    const ch = size * 0.4;
+    drawShape(ctx, bracketClose, cx + size * 0.6 - shapeWidth(bracketClose, ch), cy + size * 0.4, ch, ONE_PASSWORD.sky);
+    return;
+  }
+  drawShape(ctx, bracketOpen, cx - size * 0.66, cy - size * 0.5, size * 0.56, ONE_PASSWORD.sky);
+  drawBigMarkDisc(d, mark, cx, cy, size);
+  drawShape(ctx, bracketClose, cx + size * 0.12, cy + size * 0.06, size * 0.5, ONE_PASSWORD.sky);
+}
+
+function drawBigMarkDisc(d: DrawCtx, mark: BrandShape, cx: number, cy: number, size: number) {
+  const { ctx } = d;
+  ctx.fillStyle = ONE_PASSWORD.cream;
+  ctx.beginPath();
+  ctx.arc(cx, cy, size * 0.42, 0, Math.PI * 2);
+  ctx.fill();
+  drawShape(ctx, mark, cx - shapeWidth(mark, size) / 2, cy - size / 2, size, ONE_PASSWORD.blue);
+}
+
+/** Left and right reach of drawBigMark's loops from its centre, per unit of size. */
+const bigMarkReach = () => ({ left: 0.66, right: 0.12 + shapeWidth(bracketClose, 0.5) });
+
+/** Strip band art: the big mark, its loops included in the width. */
 function sponsorArt(mark: BrandShape): Art {
-  const m = shapeWidth(mark, 0.86);
-  const lw = shapeWidth(bracketOpen, 0.62);
-  const cw = shapeWidth(bracketClose, 0.55);
   return {
-    width: m + lw * 0.45 + cw * 0.6,
+    width: 1.25,
     height: 0.86,
     draw(d, cx, bottom, u) {
-      const left = cx - (this.width * u) / 2;
-      const mx = left + lw * 0.45 * u;
-      // Clear of the bottom edge, which the printer may crop.
-      const my = bottom - u * 1.06;
-      drawShape(d.ctx, bracketOpen, left, my + u * 0.06, u * 0.62, ONE_PASSWORD.sky);
-      // Cream disc behind so the keyhole reads as a cut-out.
-      d.ctx.fillStyle = ONE_PASSWORD.cream;
-      d.ctx.beginPath();
-      d.ctx.arc(mx + (m * u) / 2, my + u * 0.43, u * 0.36, 0, Math.PI * 2);
-      d.ctx.fill();
-      drawShape(d.ctx, mark, mx, my, u * 0.86, ONE_PASSWORD.blue);
-      drawShape(d.ctx, bracketClose, mx + m * u - cw * 0.4 * u, my + u * 0.36, u * 0.55, ONE_PASSWORD.sky);
+      const r = bigMarkReach();
+      const size = u * 0.86;
+      // Centre the loops' full reach on cx, clear of the bottom edge (the printer may crop it).
+      drawBigMark(d, mark, cx + ((r.left - r.right) * size) / 2, bottom - u * 0.62, size);
     },
   };
 }
@@ -427,27 +447,18 @@ const COLUMN_OVERFLOW = 0.42;
 /** Sponsor lock-up: mark height, and the divider's length/gap around it. */
 const LOCKUP = { strip: 34, column: 40, gap: 14, rule: 3 };
 
+/** Width of the sponsor's grid-column rail, where its name runs down the sheet edge. */
+const RAIL = 40;
+
 /**
- * The sponsor's name repeated along a margin, split by its mark, like
- * security tape: down the left margin of a strip, across the top of the
- * grid. Part of the frame, not an add-on.
+ * The sponsor's name repeated along a line of length `len` centred on
+ * (cx, cy) and turned by `angle`, split by its mark, like security tape.
  */
-function drawSponsorBorder(d: DrawCtx, panel: Panel) {
-  const sponsor = d.frame.sponsor;
-  if (!sponsor) return;
+function drawRun(d: DrawCtx, sponsor: Sponsor, cx: number, cy: number, len: number, size: number, angle: number) {
   const { ctx } = d;
-  const first = panel.cells[0]!;
-  const last = panel.cells[panel.cells.length - 1]!;
-  const b = panel.bounds;
-  const vertical = panel.brandSide === "bottom";
-  const margin = vertical ? first.x - b.x : first.y - b.y;
-  const size = Math.min(22, margin * 0.42);
-  const len = vertical ? last.y + last.h - first.y : panel.cells[1]!.x + panel.cells[1]!.w - first.x;
   ctx.save();
-  if (vertical) {
-    ctx.translate(b.x + margin / 2, first.y + len / 2);
-    ctx.rotate(-Math.PI / 2);
-  } else ctx.translate(first.x + len / 2, b.y + margin / 2);
+  ctx.translate(cx, cy);
+  ctx.rotate(angle);
   ctx.font = `800 ${size}px ${d.body}`;
   ctx.letterSpacing = `${size * 0.22}px`;
   const word = sponsor.name.toUpperCase();
@@ -471,6 +482,31 @@ function drawSponsorBorder(d: DrawCtx, panel: Panel) {
   }
   ctx.letterSpacing = "0px";
   ctx.restore();
+}
+
+/**
+ * Sponsor name runs round the photos — part of the frame, not an add-on.
+ * Strips: across the top and up the outer margin. Grid: across the top and
+ * down the rail at the sheet's right edge.
+ */
+function drawSponsorBorder(d: DrawCtx, panel: Panel) {
+  const sponsor = d.frame.sponsor;
+  if (!sponsor) return;
+  const first = panel.cells[0]!;
+  const last = panel.cells[panel.cells.length - 1]!;
+  const b = panel.bounds;
+  const top = first.y - b.y;
+  const photosRight = panel.cells[1]!.x + panel.cells[1]!.w;
+  const acrossW = (panel.brandSide === "bottom" ? first.x + first.w : photosRight) - first.x;
+  drawRun(d, sponsor, first.x + acrossW / 2, b.y + top / 2, acrossW, Math.min(22, top * 0.42), 0);
+  if (panel.brandSide === "bottom") {
+    const side = first.x - b.x;
+    const len = last.y + last.h - first.y;
+    drawRun(d, sponsor, b.x + side / 2, first.y + len / 2, len, Math.min(22, side * 0.42), -Math.PI / 2);
+  } else {
+    const len = b.h - QR_EDGE * 2;
+    drawRun(d, sponsor, b.x + b.w - RAIL / 2, b.y + b.h / 2, len, 20, Math.PI / 2);
+  }
 }
 
 /** Thin rule with rounded caps from (x0, y0) to (x1, y1), as in the brand's partner lock-ups. */
@@ -530,6 +566,17 @@ function drawArt(d: DrawCtx, panel: Panel) {
   // is narrow, so the art is drawn over the photos and may lap their edge.
   const textBottom = b.y + 6 + COLUMN_TEXT.logo + COLUMN_TEXT.date * 1.6 + columnLockupH(d);
   const top = d.qrUrl ? textBottom + QR_GAP.column * 2 + QR_COLUMN : textBottom + 36;
+  if (d.frame.sponsor) {
+    // Big mark filling what's left between the QR (or lock-up) and the
+    // bottom edge, loops stacked above and below, clear of the name rail.
+    const x0 = b.x + 4;
+    const x1 = b.x + b.w - RAIL - 4;
+    const h = bottom - QR_EDGE - top;
+    // Loops may lap into the gutter between photos and column.
+    const size = Math.min((x1 - x0) * 0.92, h / 1.9);
+    drawBigMark(d, d.frame.sponsor.mark, (x0 + x1) / 2, top + h / 2 + size * 0.02, size, true);
+    return;
+  }
   if (d.frame.id === "garden") img(d, "bush-1", b.x - 160, bottom - 120, 150);
   placeArt(d, art, { x: b.x, y: top, w: b.w, h: bottom - top }, bottom, COLUMN_OVERFLOW, -0.06);
 }
@@ -563,7 +610,7 @@ function drawText(d: DrawCtx, panel: Panel) {
     return;
   }
   const x = b.x + COLUMN_PAD * 0.5;
-  const w = b.w - COLUMN_PAD * 1.5;
+  const w = b.w - COLUMN_PAD * 1.5 - (d.frame.sponsor ? RAIL - COLUMN_PAD * 0.5 : 0);
   const qrX = x + (w - QR_COLUMN) / 2;
   if (!hasArt) {
     // Clean: logo and date sit level with the bottom of the photos, QR above them.
@@ -907,8 +954,10 @@ function drawDecor(d: DrawCtx, panel: Panel, on: AddOns) {
       ctx.restore();
     }
     if (on.confetti && d.frame.sponsor)
-      // The left margin carries the sponsor's border text; scatter across the top instead.
-      drawConfetti(d, { x: first.x + 8, y: 6, w: first.w - 16, h: first.y - 12 }, 9, 26);
+      // The margins carry the sponsor's name; scatter along the gaps between photos.
+      cells.slice(0, -1).forEach((c, i) =>
+        drawConfetti(d, { x: c.x + 40, y: c.y + c.h, w: c.w - 80, h: cells[i + 1]!.y - c.y - c.h }, 7, 26 + i)
+      );
     else if (on.confetti)
       drawConfetti(d, { x: b.x + 6, y: first.y, w: first.x - b.x - 12, h: last.y + last.h - first.y }, 11, 26);
   } else {

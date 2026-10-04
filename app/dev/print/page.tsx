@@ -47,8 +47,12 @@ export default function PrintSheet() {
       for (const mode of MODES) {
         const photos = Array.from({ length: SHOT_COUNT }, (_, i) => fakePhoto(mode, i));
         for (const f of FRAMES) {
-          for (const [suffix, addons] of [["plain", NO_ADDONS], ["extras", ALL_ADDONS]] as const) {
-            const canvas = await renderPrint({ mode, frame: f.id, photos, addons });
+          for (const [suffix, addons, qrUrl] of [
+            ["plain", NO_ADDONS, null],
+            ["extras", ALL_ADDONS, null],
+            ["qr", ALL_ADDONS, "https://example.com/p/abcdef123456"],
+          ] as const) {
+            const canvas = await renderPrint({ mode, frame: f.id, photos, addons, qrUrl });
             out.push({ id: `${mode}-${f.id}-${suffix}`, url: printToDataUrl(canvas) });
           }
         }
