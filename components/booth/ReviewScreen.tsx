@@ -208,7 +208,7 @@ export default function ReviewScreen({
                   {f.id !== "clean" && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={artSrc(f.mascot)}
+                      src={f.sponsor ? f.sponsor.src : artSrc(f.mascot)}
                       alt=""
                       className="absolute bottom-0 left-1/2 h-[88%] max-w-none -translate-x-1/2"
                     />

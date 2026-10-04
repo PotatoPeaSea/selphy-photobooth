@@ -37,6 +37,8 @@ export const BRAND = {
 export const ONE_PASSWORD = {
   navy: "#172663",
   blue: "#145FE4",
+  sky: "#85BEFF",
+  cream: "#FFFEFB",
 } as const;
 
 export type FrameId = "stormy" | "sparky" | "orange" | "clean" | "garden" | "crew" | "hacker" | "onepassword";
@@ -74,6 +76,8 @@ export interface FrameInfo {
 export interface Sponsor {
   name: string;
   mark: BrandShape;
+  /** The mark as a coloured SVG, for the frame swatch. */
+  src: string;
   /** Mark colour on the frame. */
   color: string;
 }
@@ -106,16 +110,16 @@ export const FRAMES: FrameInfo[] = [
   },
   // Code-matrices post: Stormy Blue dots, orange {i++;}, VR Sparky.
   { id: "hacker", label: "Hacker", bg: BRAND.black, fg: BRAND.white, mascot: "otter-sparky-vr", images: ["otter-sparky-vr"] },
-  // Sponsor frame: Stormy in 1Password-blue [ ]; on their navy, with the
-  // partnership lock-up (divider + keyhole mark) beside our logo.
+  // Sponsor frame: a big 1Password keyhole in sky-blue [ ]; on their navy,
+  // "1PASSWORD" round the borders and the partnership lock-up beside our logo.
   {
     id: "onepassword",
     label: "1Password",
     bg: ONE_PASSWORD.navy,
-    fg: BRAND.white,
+    fg: ONE_PASSWORD.cream,
     mascot: "otter-stormy",
-    images: ["otter-stormy"],
-    sponsor: { name: "1Password", mark: onePassword, color: BRAND.white },
+    images: [],
+    sponsor: { name: "1Password", mark: onePassword, src: "/brand/sponsor-1password.svg", color: ONE_PASSWORD.cream },
   },
 ];
 
@@ -352,6 +356,31 @@ function crewArt(d: DrawCtx): Art {
   };
 }
 
+/** A sponsor's round mark, big, in their blue, framed by a sky-blue [ ]; loop. */
+function sponsorArt(mark: BrandShape): Art {
+  const m = shapeWidth(mark, 0.86);
+  const lw = shapeWidth(bracketOpen, 0.62);
+  const cw = shapeWidth(bracketClose, 0.55);
+  return {
+    width: m + lw * 0.45 + cw * 0.6,
+    height: 0.86,
+    draw(d, cx, bottom, u) {
+      const left = cx - (this.width * u) / 2;
+      const mx = left + lw * 0.45 * u;
+      // Clear of the bottom edge, which the printer may crop.
+      const my = bottom - u * 1.06;
+      drawShape(d.ctx, bracketOpen, left, my + u * 0.06, u * 0.62, ONE_PASSWORD.sky);
+      // Cream disc behind so the keyhole reads as a cut-out.
+      d.ctx.fillStyle = ONE_PASSWORD.cream;
+      d.ctx.beginPath();
+      d.ctx.arc(mx + (m * u) / 2, my + u * 0.43, u * 0.36, 0, Math.PI * 2);
+      d.ctx.fill();
+      drawShape(d.ctx, mark, mx, my, u * 0.86, ONE_PASSWORD.blue);
+      drawShape(d.ctx, bracketClose, mx + m * u - cw * 0.4 * u, my + u * 0.36, u * 0.55, ONE_PASSWORD.sky);
+    },
+  };
+}
+
 function artFor(d: DrawCtx): Art | null {
   const a = (n: ArtImage) => aspect(d.images[n]);
   switch (d.frame.id) {
@@ -368,7 +397,7 @@ function artFor(d: DrawCtx): Art | null {
     case "crew":
       return crewArt(d);
     case "onepassword":
-      return loopsArt("otter-stormy", bracketOpen, bracketClose, ONE_PASSWORD.blue, a("otter-stormy"));
+      return sponsorArt(onePassword);
     case "clean":
       return null;
   }
@@ -397,6 +426,52 @@ const COLUMN_TEXT = { logo: 54, date: 30 };
 const COLUMN_OVERFLOW = 0.42;
 /** Sponsor lock-up: mark height, and the divider's length/gap around it. */
 const LOCKUP = { strip: 34, column: 40, gap: 14, rule: 3 };
+
+/**
+ * The sponsor's name repeated along a margin, split by its mark, like
+ * security tape: down the left margin of a strip, across the top of the
+ * grid. Part of the frame, not an add-on.
+ */
+function drawSponsorBorder(d: DrawCtx, panel: Panel) {
+  const sponsor = d.frame.sponsor;
+  if (!sponsor) return;
+  const { ctx } = d;
+  const first = panel.cells[0]!;
+  const last = panel.cells[panel.cells.length - 1]!;
+  const b = panel.bounds;
+  const vertical = panel.brandSide === "bottom";
+  const margin = vertical ? first.x - b.x : first.y - b.y;
+  const size = Math.min(22, margin * 0.42);
+  const len = vertical ? last.y + last.h - first.y : panel.cells[1]!.x + panel.cells[1]!.w - first.x;
+  ctx.save();
+  if (vertical) {
+    ctx.translate(b.x + margin / 2, first.y + len / 2);
+    ctx.rotate(-Math.PI / 2);
+  } else ctx.translate(first.x + len / 2, b.y + margin / 2);
+  ctx.font = `800 ${size}px ${d.body}`;
+  ctx.letterSpacing = `${size * 0.22}px`;
+  const word = sponsor.name.toUpperCase();
+  const wordW = ctx.measureText(word).width;
+  const markH = size * 1.05;
+  const markW = shapeWidth(sponsor.mark, markH);
+  const gap = size * 0.9;
+  const step = wordW + gap * 2 + markW;
+  const n = Math.max(1, Math.floor((len + gap * 2 + markW) / step));
+  let x = -(n * step - gap * 2 - markW) / 2;
+  ctx.fillStyle = ONE_PASSWORD.sky;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "middle";
+  for (let i = 0; i < n; i++) {
+    ctx.fillText(word, x, size * 0.04);
+    x += wordW;
+    if (i < n - 1) {
+      drawShape(ctx, sponsor.mark, x + gap, -markH / 2, markH, ONE_PASSWORD.blue);
+      x += gap * 2 + markW;
+    }
+  }
+  ctx.letterSpacing = "0px";
+  ctx.restore();
+}
 
 /** Thin rule with rounded caps from (x0, y0) to (x1, y1), as in the brand's partner lock-ups. */
 function drawDivider(d: DrawCtx, x0: number, y0: number, x1: number, y1: number) {
@@ -539,8 +614,8 @@ type StickerArt =
   | { kind: "star"; color: string }
   /** A sponsor's round mark, its cut-outs backed in white. */
   | { kind: "mark"; shape: BrandShape; color: string }
-  /** "{i++;}" chip. */
-  | { kind: "code"; bg: string; fg: string };
+  /** "{i++;}" chip, or other short `text`. */
+  | { kind: "code"; bg: string; fg: string; text?: string };
 
 interface Sticker {
   art: StickerArt;
@@ -565,7 +640,7 @@ const pinB = (art: StickerArt): Sticker => ({ art, cell: 1, at: [0.93, 1.0], siz
 const pinC = (art: StickerArt): Sticker => ({ art, cell: 2, at: [0.07, 0.98], size: 0.46, tilt: 7 });
 const image = (name: ArtImage): StickerArt => ({ kind: "image", name });
 const starArt = (color: string): StickerArt => ({ kind: "star", color });
-const code = (bg: string, fg: string): StickerArt => ({ kind: "code", bg, fg });
+const code = (bg: string, fg: string, text?: string): StickerArt => ({ kind: "code", bg, fg, text });
 const mark = (shape: BrandShape, color: string): StickerArt => ({ kind: "mark", shape, color });
 
 const DECOR: Record<FrameId, Decor> = {
@@ -598,8 +673,13 @@ const DECOR: Record<FrameId, Decor> = {
     confetti: [BRAND.blue, BRAND.orange],
   },
   onepassword: {
-    stickers: [{ ...pinA(mark(onePassword, ONE_PASSWORD.blue)), tilt: 0 }, pinB(image("otter-sparky")), pinC(starArt(BRAND.yellow))],
-    confetti: [ONE_PASSWORD.blue, BRAND.white, BRAND.yellow],
+    // Two keyhole stickers (kept upright) and a masked-password chip.
+    stickers: [
+      { ...pinA(mark(onePassword, ONE_PASSWORD.blue)), tilt: 0 },
+      pinB(code(ONE_PASSWORD.blue, ONE_PASSWORD.cream, "••••••••")),
+      { ...pinC(mark(onePassword, ONE_PASSWORD.navy)), tilt: 0 },
+    ],
+    confetti: [ONE_PASSWORD.blue, ONE_PASSWORD.sky, ONE_PASSWORD.cream],
   },
 };
 
@@ -654,7 +734,7 @@ function stickerBody(d: DrawCtx, art: StickerArt, h: number): HTMLCanvasElement 
     ctx.font = `800 ${h * 0.56}px ${d.display}`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText("{i++;}", w / 2, h * 0.53);
+    ctx.fillText(art.text ?? "{i++;}", w / 2, h * 0.53);
   }
   return c;
 }
@@ -826,7 +906,10 @@ function drawDecor(d: DrawCtx, panel: Panel, on: AddOns) {
       drawSideText(d, segments, y1 - y0, 17);
       ctx.restore();
     }
-    if (on.confetti)
+    if (on.confetti && d.frame.sponsor)
+      // The left margin carries the sponsor's border text; scatter across the top instead.
+      drawConfetti(d, { x: first.x + 8, y: 6, w: first.w - 16, h: first.y - 12 }, 9, 26);
+    else if (on.confetti)
       drawConfetti(d, { x: b.x + 6, y: first.y, w: first.x - b.x - 12, h: last.y + last.h - first.y }, 11, 26);
   } else {
     // Tagline along the bottom margin, confetti down the left and across the top.
@@ -844,7 +927,7 @@ function drawDecor(d: DrawCtx, panel: Panel, on: AddOns) {
     }
     if (on.confetti) {
       drawConfetti(d, { x: b.x + 4, y: top, w: first.x - b.x - 8, h: bottom - top }, 9, 26);
-      drawConfetti(d, { x: first.x, y: 14, w: right - first.x, h: top - 28 }, 16, 3);
+      if (!d.frame.sponsor) drawConfetti(d, { x: first.x, y: 14, w: right - first.x, h: top - 28 }, 16, 3);
     }
   }
 
@@ -961,6 +1044,7 @@ export async function renderPrint({
     });
     if (artOnTop) drawArt(d, panel);
     drawText(d, panel);
+    drawSponsorBorder(d, panel);
     drawDecor(d, panel, addons);
     ctx.restore();
   }
