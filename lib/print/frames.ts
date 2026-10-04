@@ -10,6 +10,7 @@ import {
   bracketX3,
   logoPrimary,
   logoTertiary,
+  medallion,
   onePassword,
   star,
   type BrandShape,
@@ -110,8 +111,8 @@ export const FRAMES: FrameInfo[] = [
   },
   // Code-matrices post: Stormy Blue dots, orange {i++;}, VR Sparky.
   { id: "hacker", label: "Hacker", bg: BRAND.black, fg: BRAND.white, mascot: "otter-sparky-vr", images: ["otter-sparky-vr"] },
-  // Sponsor frame: a big 1Password keyhole in sky-blue [ ]; on their navy,
-  // "1PASSWORD" round the borders and the partnership lock-up beside our logo.
+  // Sponsor frame: no StormHacks branding, only the Surge medallion beside a
+  // big 1Password keyhole on their navy, with "1PASSWORD" round the borders.
   {
     id: "onepassword",
     label: "1Password",
@@ -237,6 +238,12 @@ function drawTextBlock(
   align: "left" | "center",
   sizes: { logo: number; date: number }
 ): number {
+  if (d.frame.sponsor) {
+    // Sponsor frames carry no StormHacks wordmark or date: just the Surge medallion.
+    const h = Math.min(sizes.logo + sizes.date * 1.6, width);
+    drawShape(d.ctx, medallion, align === "left" ? x : x + (width - h) / 2, top, h, d.frame.fg);
+    return top + h;
+  }
   const clean = d.frame.id === "clean";
   const logo = clean ? logoPrimary : logoTertiary;
   const logoColor = clean ? BRAND.blue : d.frame.fg;
@@ -356,17 +363,6 @@ function crewArt(d: DrawCtx): Art {
   };
 }
 
-/**
- * A sponsor's round mark, `size` across, centred on (cx, cy), in their blue
- * with a cream keyhole, framed by sky-blue [ ]; loops lapping its edges.
- */
-function drawBigMark(d: DrawCtx, mark: BrandShape, cx: number, cy: number, size: number) {
-  const { ctx } = d;
-  drawShape(ctx, bracketOpen, cx - size * 0.66, cy - size * 0.5, size * 0.56, ONE_PASSWORD.sky);
-  drawBigMarkDisc(d, mark, cx, cy, size);
-  drawShape(ctx, bracketClose, cx + size * 0.12, cy + size * 0.06, size * 0.5, ONE_PASSWORD.sky);
-}
-
 /** The mark in their blue on a cream disc, so the keyhole reads as a cut-out. */
 function drawBigMarkDisc(d: DrawCtx, mark: BrandShape, cx: number, cy: number, size: number) {
   const { ctx } = d;
@@ -377,19 +373,14 @@ function drawBigMarkDisc(d: DrawCtx, mark: BrandShape, cx: number, cy: number, s
   drawShape(ctx, mark, cx - shapeWidth(mark, size) / 2, cy - size / 2, size, ONE_PASSWORD.blue);
 }
 
-/** Left and right reach of drawBigMark's loops from its centre, per unit of size. */
-const bigMarkReach = () => ({ left: 0.66, right: 0.12 + shapeWidth(bracketClose, 0.5) });
-
-/** Strip band art: the big mark, its loops included in the width. */
+/** Strip band art: the sponsor's mark, big. */
 function sponsorArt(mark: BrandShape): Art {
   return {
-    width: 1.25,
+    width: 1,
     height: 0.86,
     draw(d, cx, bottom, u) {
-      const r = bigMarkReach();
-      const size = u * 0.86;
-      // Centre the loops' full reach on cx, clear of the bottom edge (the printer may crop it).
-      drawBigMark(d, mark, cx + ((r.left - r.right) * size) / 2, bottom - u * 0.62, size);
+      // Clear of the bottom edge, which the printer may crop.
+      drawBigMarkDisc(d, mark, cx, bottom - u * 0.56, u * 0.86);
     },
   };
 }
@@ -739,6 +730,9 @@ export function frameImages(id: FrameId): ArtImage[] {
 }
 
 const TAGLINE = ["West Canada’s Largest Hackathon", "Oct 3 + 4", "SFU Burnaby", "#StormHacks26"];
+const taglineFor = (d: DrawCtx) => (d.frame.sponsor ? [d.frame.sponsor.name, "SFU Surge"] : TAGLINE);
+/** Separator / confetti shape: the brand star, or the sponsor's mark on their frame. */
+const starFor = (d: DrawCtx) => d.frame.sponsor?.mark ?? star;
 
 /** Seeded PRNG so both strips (and every reprint) scatter identically. */
 function rng(seed: number) {
@@ -869,7 +863,7 @@ function drawSideText(d: DrawCtx, segments: string[], len: number, maxSize: numb
     ctx.letterSpacing = `${size * 0.18}px`;
     const starH = size * 0.9;
     const gap = size * 0.9;
-    const starW = shapeWidth(star, starH);
+    const starW = shapeWidth(starFor(d), starH);
     const widths = parts.map((p) => ctx.measureText(p).width);
     const total = widths.reduce((a, b) => a + b, 0) + (parts.length - 1) * (starW + gap * 2);
     return { starH, gap, starW, widths, total };
@@ -891,7 +885,7 @@ function drawSideText(d: DrawCtx, segments: string[], len: number, maxSize: numb
     ctx.fillText(p, x, 0);
     x += widths[i]!;
     if (i < parts.length - 1) {
-      drawShape(ctx, star, x + gap, -starH / 2, starH, d.frame.fg);
+      drawShape(ctx, starFor(d), x + gap, -starH / 2, starH, d.frame.fg);
       x += starW + gap * 2;
     }
   });
@@ -915,7 +909,8 @@ function drawConfetti(d: DrawCtx, zone: Rect, count: number, seed: number) {
     const x = zone.x + (vertical ? across : along);
     const y = zone.y + (vertical ? along : across);
     const color = colors[i % colors.length]!;
-    if (isStar) drawShape(ctx, star, x - shapeWidth(star, s) / 2, y - s / 2, s, color);
+    const shape = starFor(d);
+    if (isStar) drawShape(ctx, shape, x - shapeWidth(shape, s) / 2, y - s / 2, s, color);
     else {
       ctx.fillStyle = color;
       ctx.beginPath();
@@ -943,10 +938,10 @@ function drawDecor(d: DrawCtx, panel: Panel, on: AddOns) {
     const gapY = cells[1]!.y + cells[1]!.h;
     const runs: [string[], number, number][] = on.stickers
       ? [
-          [TAGLINE.slice(0, 1), first.y, gapY - first.h * 0.32],
-          [TAGLINE.slice(1), gapY + first.h * 0.32, last.y + last.h],
+          [taglineFor(d).slice(0, 1), first.y, gapY - first.h * 0.32],
+          [taglineFor(d).slice(1), gapY + first.h * 0.32, last.y + last.h],
         ]
-      : [[TAGLINE, first.y, last.y + last.h]];
+      : [[taglineFor(d), first.y, last.y + last.h]];
     for (const [segments, y0, y1] of on.tagline ? runs : []) {
       ctx.save();
       ctx.translate(midX, (y0 + y1) / 2);
@@ -972,7 +967,7 @@ function drawDecor(d: DrawCtx, panel: Panel, on: AddOns) {
       const x0 = first.x + 270;
       const x1 = right - 260;
       ctx.translate((x0 + x1) / 2, (bottom + b.y + b.h) / 2);
-      drawSideText(d, TAGLINE, x1 - x0, Math.min(20, (b.y + b.h - bottom) * 0.45));
+      drawSideText(d, taglineFor(d), x1 - x0, Math.min(20, (b.y + b.h - bottom) * 0.45));
       ctx.restore();
     }
     if (on.confetti) {
@@ -1078,7 +1073,7 @@ export async function renderPrint({
 
   ctx.fillStyle = frame.bg;
   ctx.fillRect(0, 0, layout.width, layout.height);
-  if (frame.id !== "clean" && frame.id !== "crew") drawGrain(ctx, grain, layout.width, layout.height);
+  if (frame.id !== "clean" && frame.id !== "crew" && !frame.sponsor) drawGrain(ctx, grain, layout.width, layout.height);
 
   for (const panel of layout.panels) {
     // Clip to the panel so the two strips cut cleanly.
