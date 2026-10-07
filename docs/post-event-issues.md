@@ -14,14 +14,13 @@ When the DSLR's battery died, or the booth sat idle for a while, the live
 view didn't come back on its own. Each time it took a manual fix (asking
 Claude) to get it working again.
 
-**Evidence:** none found on the PC. The local Claude Code sessions for this
-repo and homeserver's agent history have no camera debugging. Those
-sessions probably ran on the Pi itself (booth-pi), which was offline when
-this was written. When it's back up, check:
+**Evidence:** the camera reconnect sessions and their debugging logs should
+be on **laptop** (the Claude Code history under `~/.claude/projects/`
+there). They aren't on desktop or homeserver. Start there to find out
+what was run to bring the camera back. The Pi (booth-pi) also has:
 
 - `/var/log/photobooth-webcam.log` (written by `photobooth-webcam.sh`)
 - `journalctl -u photobooth-webcam -u photobooth --since 2026-10-03`
-- `~/.claude/projects/` on the Pi, for what was actually run to fix it
 
 **Likely causes, from reading the code:**
 
