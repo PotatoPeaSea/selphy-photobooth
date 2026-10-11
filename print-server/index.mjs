@@ -14,6 +14,15 @@ import {
   parseJobs,
   parseQueueOrder,
 } from "./printerState.mjs";
+import {
+  connectWaitSecs,
+  connectWifi,
+  readDeviceStatus,
+  scanNetworks,
+  validatePasswordForNetwork,
+  validatePasswordShape,
+  validateSsid,
+} from "./wifi.mjs";
 
 const exec = promisify(execFile);
 
@@ -48,6 +57,17 @@ app.use((req, res, next) => (STAFF_PATH.test(req.path) ? next() : boothCors(req,
 // The PIN gate runs before the JSON parser, so an unauthenticated staff body is never read.
 app.use("/staff", requireStaffPin);
 app.use(express.json({ limit: "20mb" }));
+// A malformed body makes express.json throw a SyntaxError whose message quotes the text near the
+// error, and that text can be a Wi-Fi password. The default handler would send it back and log
+// it, so this handler answers with a fixed message and logs nothing from the error itself.
+app.use((err, req, res, next) => {
+  if (err?.type !== "entity.parse.failed") {
+    next(err);
+    return;
+  }
+  log(`Rejected a malformed JSON body on ${req.method} ${req.path}`);
+  res.status(400).json({ error: "Request body is not valid JSON" });
+});
 
 function log(...args) {
   console.log("[print-server]", ...args);
@@ -614,6 +634,113 @@ app.post(
       queued: isRecoverable(status.state),
       state: status.state,
       guestMessage: status.guestMessage,
+    });
+  }),
+);
+
+app.get(
+  "/staff/wifi",
+  route(async (_req, res) => {
+    try {
+      // Run together, so the list takes as long as its slower read, not both added up.
+      const [status, networks] = await Promise.all([readDeviceStatus(), scanNetworks()]);
+      res.json({ device: status.device, connected: status.connected, networks });
+    } catch (err) {
+      log("Wi-Fi list failed:", messageOf(err));
+      res.status(503).json({ error: `Could not read Wi-Fi: ${messageOf(err)}` });
+    }
+  }),
+);
+
+// One join at a time. The staff browser gives up after 30 s and may be retried while the first
+// join is still running, and a second scan and connect would run against the same adapter.
+let wifiJoinRunning = false;
+
+// Shape checks run before any command. The security comes from a fresh scan, so the
+// client's view of the network is never trusted.
+app.post(
+  "/staff/wifi/connect",
+  route(async (req, res) => {
+    const ssidCheck = validateSsid(req.body?.ssid);
+    if (!ssidCheck.ok) {
+      res.status(400).json({ error: ssidCheck.error });
+      return;
+    }
+    const passwordShape = validatePasswordShape(req.body?.password);
+    if (!passwordShape.ok) {
+      res.status(400).json({ error: passwordShape.error });
+      return;
+    }
+    if (wifiJoinRunning) {
+      res.status(409).json({ error: "A Wi-Fi join is already running. Wait a moment, then check the Wi-Fi tab." });
+      return;
+    }
+
+    wifiJoinRunning = true;
+    try {
+      const started = Date.now();
+      let networks;
+      try {
+        networks = await scanNetworks();
+      } catch (err) {
+        res.status(503).json({ error: `Could not read Wi-Fi: ${messageOf(err)}` });
+        return;
+      }
+      const network = networks.find((entry) => entry.ssid === ssidCheck.ssid);
+      if (!network) {
+        res.status(404).json({ error: "That network is not in range. Refresh the list and try again." });
+        return;
+      }
+      const check = validatePasswordForNetwork(passwordShape.password, network.security);
+      if (!check.ok) {
+        res.status(400).json({ error: check.error });
+        return;
+      }
+
+      // The password is never logged, in any form.
+      log(`Wi-Fi connect requested for "${ssidCheck.ssid}" (${network.security || "open"})`);
+      const result = await connectWifi(
+        ssidCheck.ssid,
+        passwordShape.password,
+        connectWaitSecs(Date.now() - started),
+      );
+      log(result.ok ? `Wi-Fi connected to "${ssidCheck.ssid}"` : `Wi-Fi connect to "${ssidCheck.ssid}" failed`);
+      res.json(result);
+    } finally {
+      wifiJoinRunning = false;
+    }
+  }),
+);
+
+// Order matters: the launcher's loop must stop before Chromium does, or it starts Chromium
+// again. Two patterns only; anything broader could hit other processes. The Chromium pattern
+// matches the kiosk's own command line (the --kiosk flag and its URL, as set in
+// deploy/pi/photobooth-kiosk.sh), so an ordinary Chromium window the staff have open is left alone.
+const KIOSK_STOP = [
+  ["-f", "lwrespawn.*photobooth-kiosk"],
+  ["-f", "kiosk .*127\\.0\\.0\\.1:3001"],
+];
+
+async function stopKiosk() {
+  for (const args of KIOSK_STOP) {
+    try {
+      await exec("pkill", args, { timeout: 10_000 });
+    } catch (err) {
+      // pkill exits 1 when nothing matched, which is the normal case here.
+      if (err.code !== 1) log(`pkill ${args.join(" ")} failed:`, messageOf(err));
+    }
+  }
+}
+
+app.post(
+  "/staff/leave-kiosk",
+  route((_req, res) => {
+    // The answer goes out first. The kiosk is closed once the response is written, so the
+    // staff browser is not cut off before it has its answer.
+    res.json({ ok: true });
+    res.once("finish", () => {
+      log("Staff leaving the booth: closing the kiosk");
+      stopKiosk();
     });
   }),
 );

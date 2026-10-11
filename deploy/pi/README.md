@@ -10,6 +10,8 @@ live outside the repo on the device; keep these in sync when you change them.
 | `photobooth-kiosk.sh` | `/usr/local/bin/` — started from `~/.config/labwc/autostart` via `lwrespawn` |
 | `v4l2loopback.conf` | `/etc/modprobe.d/` (and `v4l2loopback` in `/etc/modules-load.d/`) |
 | `50-photobooth-pcsc.rules` | `/etc/polkit-1/rules.d/` — lets the service use the NFC reader |
+| `50-photobooth-networkmanager.rules` | `/etc/polkit-1/rules.d/` — lets the staff Wi-Fi panel scan and join networks as `pi` |
+| `back-to-booth.desktop` | `~/Desktop/` — staff launcher that starts the kiosk again after "Leave booth" |
 
 ## Camera
 
@@ -58,3 +60,26 @@ and in `.env.local`: `PRINTER_NAME=Selphy`, `CUPS_MEDIA_OPTION=Postcard`.
 ```sh
 sudo apt install pcscd libpcsclite-dev
 ```
+
+## Wi-Fi and leaving the booth
+
+The staff panel (five taps in the top-right corner of the Scan screen, then the PIN)
+has a Wi-Fi tab and a Booth tab. The print server does the work:
+
+- **Wi-Fi** runs `nmcli` as `pi`. `50-photobooth-networkmanager.rules` lets that
+  user scan, change connections and join networks without a password prompt. Check the
+  three actions on the Pi with
+  `pkaction --action-id org.freedesktop.NetworkManager.wifi.scan --verbose`, and the same
+  for `org.freedesktop.NetworkManager.network-control` and
+  `org.freedesktop.NetworkManager.settings.modify.system`. If the Wi-Fi tab still says
+  permission denied, restart polkit (`sudo systemctl restart polkit`).
+- **Leave booth** (Booth tab, after a confirm) stops the `lwrespawn` loop that runs
+  `photobooth-kiosk.sh`, then the kiosk's own Chromium window. Other Chromium windows are
+  left open. The Next.js and print servers keep running.
+- **Back to booth**: double-click the "Back to Booth" launcher on the desktop. It starts
+  the kiosk unless one is already running. A reboot starts the kiosk too, through the
+  labwc autostart. The launcher must be executable (`chmod +x`); if the desktop asks
+  whether to run or open it, choose to run it.
+
+The Wi-Fi password is passed to `nmcli` only. The print server never logs or saves it.
+NetworkManager keeps the joined network in its usual saved profile.

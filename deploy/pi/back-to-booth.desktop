@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Back to Booth
+Comment=Start the photobooth kiosk again after Leave booth. Does nothing if it is already running.
+# The check is anchored at the start of the command line: the shell that runs it has
+# "sh -c" there, so it cannot match its own text. The pattern is not bracketed, because the
+# exec part of this same line contains "lwrespawn /usr/local/bin/photobooth-kiosk".
+Exec=sh -c "pgrep -f '^[^ ]*lwrespawn /usr/local/bin/photobooth-kiosk' >/dev/null || exec lwrespawn /usr/local/bin/photobooth-kiosk.sh"
+Icon=video-display
+Terminal=false
+StartupNotify=false
+Categories=Utility;

@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Fake nmcli for the Wi-Fi routes. `dev wifi list` prints the scan fixture, `dev status`
+# the device fixture, and `dev wifi connect` succeeds unless $FAKE_CUPS_STATE/nmcli_connect_error
+# holds a message (then it prints that to stderr and exits 4, as nmcli does on a failed join).
+# A test can override either fixture by writing nmcli_wifi_list or nmcli_dev_status into the state dir.
+source "$(dirname "$0")/common.sh"
+fake_call nmcli "$@"
+
+fixtures="$(dirname "$0")/../fixtures"
+pick() { # $1 = override file in the state dir, $2 = fixture file name
+  if [ -f "$FAKE_CUPS_STATE/$1" ]; then
+    cat "$FAKE_CUPS_STATE/$1"
+  else
+    cat "$fixtures/$2"
+  fi
+}
+
+# Connect is matched first: a network name could equal a later word such as "list".
+case " $* " in
+  *" connect "*)
+    # nmcli_connect_delay (seconds) makes a join slow, so a test can overlap two of them.
+    if [ -f "$FAKE_CUPS_STATE/nmcli_connect_delay" ]; then
+      sleep "$(cat "$FAKE_CUPS_STATE/nmcli_connect_delay")"
+    fi
+    if [ -f "$FAKE_CUPS_STATE/nmcli_connect_error" ]; then
+      cat "$FAKE_CUPS_STATE/nmcli_connect_error" >&2
+      exit 4
+    fi
+    echo "Device 'wlan0' successfully activated with 'fake-uuid'."
+    ;;
+  *" list "*) pick nmcli_wifi_list wifi-list.txt ;;
+  *" status "*) pick nmcli_dev_status dev-status.txt ;;
+  *)
+    echo "Error: fake nmcli does not know these arguments" >&2
+    exit 2
+    ;;
+esac

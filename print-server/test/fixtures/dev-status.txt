@@ -1,0 +1,4 @@
+wlan0:wifi:connected:HomeNet
+p2p-dev-wlan0:wifi-p2p:disconnected:--
+eth0:ethernet:unavailable:--
+lo:loopback:unmanaged:--

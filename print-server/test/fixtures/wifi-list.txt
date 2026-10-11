@@ -1,0 +1,10 @@
+*:HomeNet:72:WPA2
+:HomeNet:81:WPA2 WPA3
+:Cafe\:Guest:64:--
+:Office 5G:55:WPA2 802.1X
+::0:WPA2
+:Back\\Yard:40:WPA2
+:Lake House:30:WEP
+:Cafe\:Guest:70:--
+:Shed:12:
+*:Partial

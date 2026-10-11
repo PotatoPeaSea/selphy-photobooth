@@ -1,0 +1,7 @@
+// Let the photobooth print server (user pi, no active seat) scan Wi-Fi and join networks
+// from the staff panel. Checked on the Pi with: pkaction --action-id <id> --verbose
+polkit.addRule(function(action, subject) {
+  if ((action.id == "org.freedesktop.NetworkManager.network-control" || action.id == "org.freedesktop.NetworkManager.settings.modify.system" || action.id == "org.freedesktop.NetworkManager.wifi.scan") && subject.user == "pi") {
+    return polkit.Result.YES;
+  }
+});

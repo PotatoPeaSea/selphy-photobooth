@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Fake pkill: records every call and never signals anything. `pkill_nomatch` makes it exit 1,
+# as real pkill does when nothing matches. `pkill_delay` (seconds) makes it slow, so a test
+# can show the server did not wait for it before answering.
+source "$(dirname "$0")/common.sh"
+fake_call pkill "$@"
+
+if [ -f "$FAKE_CUPS_STATE/pkill_delay" ]; then
+  sleep "$(cat "$FAKE_CUPS_STATE/pkill_delay")"
+fi
+if [ -f "$FAKE_CUPS_STATE/pkill_nomatch" ]; then
+  exit 1
+fi
+exit 0
