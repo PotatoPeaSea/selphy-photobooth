@@ -6,6 +6,41 @@ Problems found running the booth at the event. 1–3 are software fixes.
 get lost. Each fix ends with verification and a commit, as in the redesign
 plan.
 
+Status (2026-10-11, branch `post-event-fixes`, not merged): the software fixes for
+items 1–3 are done, one commit per part. Each was checked with fake hardware and in
+Playwright; none has run on the Pi or with the real camera or printer.
+
+- **1 Camera** (`a4f68ca`): the Pi script watches the frame counter and restarts a
+  stalled feed. A Canon that never gives a frame is reset, and after three tries the Pi
+  Camera takes over until the Canon is unplugged. Source switches wait out a USB drop.
+  The booth reopens the stream after a dropped track, restarts a frozen feed, and never
+  captures a shot from a frame older than 1.5 s. Checked with 10 harness scenarios for the
+  script and Playwright runs for freezes, drops, warm-up and a missing camera.
+- **2 Printer** (`0cb25e9`, `cac3ba3`): jams, paper, ink and covers are read from CUPS, and
+  a print in those states queues instead of failing. The staff panel (five taps in the
+  top-right of the Scan screen, then the PIN) shows the queue and can cancel, clear,
+  resume and reprint. Checked with fake CUPS commands and Playwright. The CUPS state text
+  is modelled on CUPS 2.x, not captured from the Selphy.
+- **3 Wi-Fi and kiosk exit** (`b5d6415`, `916f351`): the staff panel has a Wi-Fi tab
+  (scan, join, on-screen keyboard) and a Booth tab. "Leave booth" stops the kiosk, and the
+  Back to Booth launcher on the desktop starts it again. Checked with fake nmcli and pkill
+  and Playwright. Not checked on the Pi: real nmcli output, the polkit rule, the launcher's
+  pgrep match, and leave and return on the kiosk.
+
+To deploy: copy `deploy/pi/photobooth-webcam.sh` to `/usr/local/bin/` and restart the
+webcam service, install both polkit rules and `back-to-booth.desktop`, and set
+`STAFF_PIN` (4–8 digits) in `.env.local`. Then restart `photobooth`. `deploy/pi/README.md`
+has the details.
+
+Open:
+- WEP networks are refused, because the WPA length rule applies to them too. A venue that
+  only has WEP would need that decided.
+- The Wi-Fi password is passed to `nmcli` on its command line, so another local user could
+  read it from `/proc` during a join.
+- Not built: the hotspot and captive-portal fallback for boot with no known network.
+- Item 5 (Discord alerts) still waits on the channel and bot token. Items 4–7 are case and
+  CAD work.
+
 ## Software
 
 ### 1. Camera doesn't recover after it dies or sits idle
