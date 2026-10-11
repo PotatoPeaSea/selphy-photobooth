@@ -15,8 +15,11 @@ const previewKey = (frame: FrameId, addons: AddOns) =>
   `${frame}:${ADDONS.map((a) => (addons[a.id] ? 1 : 0)).join("")}`;
 
 function PrinterChip({ status, onTap }: { status: PrinterStatus; onTap: () => void }) {
-  const [dot, text] =
-    status.kind === "ready"
+  // A jam, paper, ink or cover problem comes with its own guest wording.
+  const guest = status.kind === "checking" ? null : status.guestMessage;
+  const [dot, text] = guest
+    ? ["bg-sh-orange", guest]
+    : status.kind === "ready"
       ? [status.warning ? "bg-sh-yellow" : "bg-[#1FA36A]", status.warning ?? "Printer ready"]
       : status.kind === "checking"
         ? ["bg-sh-grey animate-pulse", "Checking printer…"]
@@ -26,7 +29,7 @@ function PrinterChip({ status, onTap }: { status: PrinterStatus; onTap: () => vo
       type="button"
       onClick={onTap}
       data-testid="printer-status"
-      className="flex min-h-[2.5rem] items-center gap-[0.55rem] rounded-full bg-sh-black/[0.06] px-[0.9rem] text-left text-[0.85rem] font-medium leading-tight"
+      className="flex min-h-[3rem] items-center gap-[0.55rem] rounded-full bg-sh-black/[0.06] px-[0.9rem] text-left text-[0.85rem] font-medium leading-tight"
     >
       <span className={`size-[0.6rem] shrink-0 rounded-full ${dot}`} />
       <span className="line-clamp-2">{text}</span>
@@ -234,7 +237,7 @@ export default function ReviewScreen({
                 aria-checked={on}
                 data-addon={a.id}
                 onClick={() => onAddons({ ...addons, [a.id]: !on })}
-                className={`flex min-h-[2.75rem] flex-1 items-center justify-center gap-[0.5rem] rounded-[0.8rem] px-[0.6rem] text-[0.95rem] font-semibold transition-colors ${
+                className={`flex min-h-[3rem] flex-1 items-center justify-center gap-[0.5rem] rounded-[0.8rem] px-[0.6rem] text-[0.95rem] font-semibold transition-colors ${
                   on ? "bg-sh-black text-sh-white" : "bg-sh-black/[0.06] text-sh-black"
                 }`}
               >
@@ -271,7 +274,7 @@ export default function ReviewScreen({
                     aria-checked={on}
                     data-copies={n}
                     onClick={() => onCopies(n)}
-                    className={`type-display size-[2.75rem] rounded-[0.8rem] text-[1.2rem] transition-colors ${
+                    className={`type-display size-[3rem] rounded-[0.8rem] text-[1.2rem] transition-colors ${
                       on ? "bg-sh-black text-sh-white" : "bg-sh-black/[0.06] text-sh-black"
                     }`}
                   >

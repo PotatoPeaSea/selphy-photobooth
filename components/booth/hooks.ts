@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CupsPrinterClient } from "@/lib/cupsPrinterClient";
+import { CupsPrinterClient, type PrinterState } from "@/lib/cupsPrinterClient";
 import { backoffDelay } from "./cameraRecovery";
 
 /** Calls `onIdle` after `ms` without a touch, key press or pointer move. */
@@ -196,8 +196,8 @@ export function useCamera(active: boolean): CameraController {
 
 export type PrinterStatus =
   | { kind: "checking" }
-  | { kind: "ready"; name: string; warning: string | null }
-  | { kind: "offline"; message: string };
+  | { kind: "ready"; name: string; warning: string | null; state: PrinterState; guestMessage: string | null }
+  | { kind: "offline"; message: string; state: PrinterState; guestMessage: string | null };
 
 /**
  * Print server connection. Never gates shooting: status is informational,
@@ -207,25 +207,38 @@ export function usePrinter(pollMs: number | null) {
   const client = useRef<CupsPrinterClient | null>(null);
   client.current ??= new CupsPrinterClient();
   const [status, setStatus] = useState<PrinterStatus>({ kind: "checking" });
+  // Numbers each refresh. The interval and resume() both refresh, so a reply to an
+  // older refresh is dropped rather than overwriting a newer answer.
+  const latestRefresh = useRef(0);
 
   const refresh = useCallback(async (): Promise<PrinterStatus> => {
+    const refreshNo = ++latestRefresh.current;
     let next: PrinterStatus;
     try {
       const name = await client.current!.connect();
       const health = await client.current!.checkHealth();
       const warning =
         health.queue?.warning ?? health.queue?.printerStatus?.error ?? null;
+      const state = health.state ?? "unknown";
+      const guestMessage = health.guestMessage ?? null;
       next = health.ok
-        ? { kind: "ready", name, warning }
-        : { kind: "offline", message: warning ?? "Printer not ready" };
+        ? { kind: "ready", name, warning, state, guestMessage }
+        : {
+            kind: "offline",
+            message: guestMessage ?? warning ?? "Printer not ready",
+            state,
+            guestMessage,
+          };
     } catch (err) {
       client.current!.disconnect();
       next = {
         kind: "offline",
         message: err instanceof Error ? err.message : "Print server unavailable",
+        state: "offline",
+        guestMessage: null,
       };
     }
-    setStatus(next);
+    if (refreshNo === latestRefresh.current) setStatus(next);
     return next;
   }, []);
 

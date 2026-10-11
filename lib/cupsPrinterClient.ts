@@ -7,8 +7,33 @@ export function printApiBase(): string {
   );
 }
 
+/** Printer state from the print server, classified from CUPS (printerState.mjs). */
+export type PrinterState =
+  | "ready"
+  | "busy"
+  | "jammed"
+  | "out_of_paper"
+  | "out_of_ink"
+  | "cover_open"
+  | "offline"
+  | "disabled"
+  | "unknown";
+
+export interface PrintQueueJob {
+  id: string;
+  owner?: string;
+  size?: number;
+  submitted?: string;
+  state?: string;
+  /** Jobs ahead of this one in the queue. */
+  ahead?: number;
+}
+
 export interface PrintQueueStatus {
   jobCount: number;
+  jobs?: PrintQueueJob[];
+  /** False when the queue could not be read. An empty list then says nothing about the jobs. */
+  jobsKnown?: boolean;
   warning: string | null;
   printerStatus?: {
     ready: boolean;
@@ -19,10 +44,22 @@ export interface PrintQueueStatus {
 }
 
 export interface PrintServerHealth {
+  /** True only when the printer is ready or busy. Queued-but-jammed prints still get accepted. */
   ok: boolean;
   printer: string | null;
   media: string;
+  state?: PrinterState;
+  /** Guest-facing wording for a mechanical problem, or null when there is none. */
+  guestMessage?: string | null;
   queue?: PrintQueueStatus | null;
+}
+
+export interface PrintImageResult {
+  jobId: string | null;
+  warning: string | null;
+  /** Accepted but held until staff clear the printer. Not an error. */
+  queued: boolean;
+  guestMessage: string | null;
 }
 
 export interface PrinterInfo {
@@ -131,7 +168,7 @@ export class CupsPrinterClient {
   async printImage(
     imageDataUrl: string,
     opts: { copies?: number; onProgress?: (pct: number) => void } = {}
-  ): Promise<{ jobId: string | null; warning: string | null }> {
+  ): Promise<PrintImageResult> {
     if (!this.connectedPrinter) throw new Error("Printer not connected");
 
     opts.onProgress?.(10);
@@ -152,6 +189,8 @@ export class CupsPrinterClient {
       error?: string;
       jobId?: string | null;
       warning?: string | null;
+      queued?: boolean;
+      guestMessage?: string | null;
       message?: string;
     } | null;
 
@@ -163,6 +202,8 @@ export class CupsPrinterClient {
     return {
       jobId: body?.jobId ?? null,
       warning: body?.warning ?? null,
+      queued: body?.queued === true,
+      guestMessage: body?.guestMessage ?? null,
     };
   }
 }

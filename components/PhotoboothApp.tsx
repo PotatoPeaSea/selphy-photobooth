@@ -7,6 +7,7 @@ import ReviewScreen from "@/components/booth/ReviewScreen";
 import ScanScreen from "@/components/booth/ScanScreen";
 import ShootScreen from "@/components/booth/ShootScreen";
 import { useCamera, useIdle, usePrinter } from "@/components/booth/hooks";
+import StaffPanel from "@/components/staff/StaffPanel";
 import {
   DEFAULT_ADDONS,
   printToDataUrl,
@@ -26,15 +27,17 @@ const PRINTER_POLL_MS = 10_000;
 
 type Step =
   | { name: "scan" }
+  | { name: "staff" }
   | { name: "mode" }
   | { name: "shoot"; mode: PrintMode }
   | { name: "review"; mode: PrintMode; shots: HTMLCanvasElement[] }
   | { name: "done"; mode: PrintMode; frame: FrameId; print: PrintState; share: ShareState };
 
 /**
- * Scan → Mode → Shoot → Review → Done → Scan.
+ * Scan → Mode → Shoot → Review → Done → Scan. Staff reach the staff panel from
+ * Scan by a hidden gesture, and it returns to Scan.
  * Printer state never blocks shooting; on a failed print the guest still
- * gets a QR code for their photos.
+ * gets a QR code for their photos, and a held print prints once staff clear it.
  */
 export default function PhotoboothApp() {
   const [step, setStep] = useState<Step>({ name: "scan" });
@@ -115,8 +118,13 @@ export default function PhotoboothApp() {
       const canvas = await renderPrint({ mode, frame: chosen, photos: shots, addons: extras, qrUrl });
       // The strip in the guest's zip matches the print, QR code and all.
       if (qrUrl) stripUrl = singleStripDataUrl(canvas, mode);
-      await printer.print(toPrinterDataUrl(canvas), count); // always portrait for the Selphy
-      patch({ print: { kind: "sent" } });
+      const sent = await printer.print(toPrinterDataUrl(canvas), count); // always portrait for the Selphy
+      // A jam or empty tray holds the job in the queue; it prints once staff clear it.
+      patch({
+        print: sent.queued
+          ? { kind: "queued", jobId: sent.jobId, guestMessage: sent.guestMessage }
+          : { kind: "sent" },
+      });
     } catch (err: unknown) {
       patch({ print: { kind: "failed", message: err instanceof Error ? err.message : "Print failed" } });
     }
@@ -130,7 +138,10 @@ export default function PhotoboothApp() {
 
   switch (step.name) {
     case "scan":
-      return <ScanScreen onAdmitted={admit} />;
+      return <ScanScreen onAdmitted={admit} onStaff={() => setStep({ name: "staff" })} />;
+    case "staff":
+      // Locks itself back to Scan after 120 s without a touch.
+      return <StaffPanel onExit={reset} />;
     case "mode":
       return (
         <ModeScreen

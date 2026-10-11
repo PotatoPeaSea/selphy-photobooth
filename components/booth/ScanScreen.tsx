@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import { BracketButton, Headline, Tagline, TertiaryLogo } from "@/components/brand/Brand";
 import {
   classifyTap,
@@ -43,10 +43,21 @@ function resultCopy(popup: TapPopup): { headline: string; subtext: string } {
   return { headline: "Badge not recognized", subtext: popup.message };
 }
 
+/** Five taps inside this window on the top-right corner open the staff panel. */
+const STAFF_TAPS = 5;
+const STAFF_WINDOW_MS = 3_000;
+
 /** Attract screen: badge check-in (NFC polling) or skip straight to the booth. */
 /** `onAdmitted` gets the badge tap that let the guest in, or null if they skipped the scan. */
-export default function ScanScreen({ onAdmitted }: { onAdmitted: (tap: NfcTap | null) => void }) {
+export default function ScanScreen({
+  onAdmitted,
+  onStaff,
+}: {
+  onAdmitted: (tap: NfcTap | null) => void;
+  onStaff: () => void;
+}) {
   const [link, setLink] = useState<LinkState>("unknown");
+  const staffTaps = useRef<number[]>([]);
   const [health, setHealth] = useState<NfcHealth | null>(null);
   const [popup, setPopup] = useState<TapPopup | null>(null);
   const [copy, setCopy] = useState(() => idleCopy("unknown", null, false));
@@ -143,6 +154,20 @@ export default function ScanScreen({ onAdmitted }: { onAdmitted: (tap: NfcTap | 
   const admitted = popup != null && popup.kind !== "notice";
   const notice = popup?.kind === "notice";
 
+  // Hidden staff gesture. The click stops here so it can't admit a guest through the screen's onClick.
+  function onCornerTap(e: MouseEvent<HTMLDivElement>) {
+    e.stopPropagation();
+    const now = Date.now();
+    const recent = staffTaps.current.filter((t) => now - t <= STAFF_WINDOW_MS);
+    recent.push(now);
+    if (recent.length >= STAFF_TAPS) {
+      staffTaps.current = [];
+      onStaff();
+      return;
+    }
+    staffTaps.current = recent;
+  }
+
   return (
     <BoothScreen
       grain
@@ -198,6 +223,14 @@ export default function ScanScreen({ onAdmitted }: { onAdmitted: (tap: NfcTap | 
       </div>
 
       <TertiaryLogo className="absolute bottom-[1.25rem] left-[1.5rem] h-[1.1rem]" />
+
+      {/* 7rem square, well above the 48px touch minimum; no visible target. */}
+      <div
+        aria-hidden
+        data-testid="staff-corner"
+        className="absolute right-0 top-0 z-10 size-[7rem]"
+        onClick={onCornerTap}
+      />
     </BoothScreen>
   );
 }
