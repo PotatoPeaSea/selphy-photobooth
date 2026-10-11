@@ -4,8 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { BracketButton } from "@/components/brand/Brand";
 import { useIdle } from "@/components/booth/hooks";
 import { BoothScreen } from "@/components/booth/Scene";
+import BoothTab from "./BoothTab";
 import PinPad from "./PinPad";
 import PrinterTab from "./PrinterTab";
+import WifiTab from "./WifiTab";
 import { fetchStatus, type StaffStatus } from "./staffApi";
 
 /** Walks back to Scan after this long without a touch. */
@@ -13,11 +15,12 @@ export const STAFF_IDLE_MS = 120_000;
 /** How often the open panel refreshes the queue and printer state. */
 const POLL_MS = 4_000;
 
-/**
- * Tabs in order. A Wi-Fi tab goes here later: add its entry, then a case in
- * renderTab. Nothing else in this file needs to change.
- */
-const TABS = [{ id: "printer", label: "Printer" }] as const;
+/** Tabs in order. Each entry needs a case in renderTab. */
+const TABS = [
+  { id: "printer", label: "Printer" },
+  { id: "wifi", label: "Wi-Fi" },
+  { id: "booth", label: "Booth" },
+] as const;
 type TabId = (typeof TABS)[number]["id"];
 
 type Session = { pin: string; status: StaffStatus };
@@ -32,6 +35,8 @@ export default function StaffPanel({ onExit }: { onExit: () => void }) {
   const [lockedBy, setLockedBy] = useState<string | null>(null);
   const [linkError, setLinkError] = useState<string | null>(null);
   const [tab, setTab] = useState<TabId>("printer");
+  // Opened tabs stay mounted, so a join or leave in flight keeps its state across tab switches.
+  const [opened, setOpened] = useState<TabId[]>(["printer"]);
   // Numbers each status request. The poll and the actions both refresh, so replies can overlap.
   const latestRequest = useRef(0);
   const pin = session?.pin ?? null;
@@ -90,10 +95,19 @@ export default function StaffPanel({ onExit }: { onExit: () => void }) {
     return null;
   };
 
+  function openTab(id: TabId) {
+    setTab(id);
+    setOpened((list) => (list.includes(id) ? list : [...list, id]));
+  }
+
   function renderTab(id: TabId, current: Session) {
     switch (id) {
       case "printer":
         return <PrinterTab pin={current.pin} status={current.status} onChanged={refresh} />;
+      case "wifi":
+        return <WifiTab pin={current.pin} />;
+      case "booth":
+        return <BoothTab pin={current.pin} />;
     }
   }
 
@@ -111,7 +125,7 @@ export default function StaffPanel({ onExit }: { onExit: () => void }) {
                   type="button"
                   role="tab"
                   aria-selected={on}
-                  onClick={() => setTab(t.id)}
+                  onClick={() => openTab(t.id)}
                   className={`min-h-[3rem] rounded-[0.8rem] px-[1.1rem] text-[1.05rem] font-semibold transition-colors ${
                     on ? "bg-sh-black text-sh-white" : "bg-sh-black/[0.06] text-sh-black"
                   }`}
@@ -135,7 +149,11 @@ export default function StaffPanel({ onExit }: { onExit: () => void }) {
 
       <div className="mt-[0.8rem] flex min-h-0 flex-1 flex-col">
         {session ? (
-          renderTab(tab, session)
+          TABS.filter((t) => opened.includes(t.id)).map((t) => (
+            <div key={t.id} className={t.id === tab ? "flex min-h-0 flex-1 flex-col" : "hidden"}>
+              {renderTab(t.id, session)}
+            </div>
+          ))
         ) : (
           <div className="flex flex-1 items-center justify-center">
             <PinPad onUnlock={unlock} initialError={lockedBy} />

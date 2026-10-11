@@ -57,27 +57,48 @@ export const STATE_TONE: Record<PrinterState, string> = {
   unknown: "bg-sh-muted text-sh-black",
 };
 
-function errorFor(status: number, body: unknown): string {
+/** keepServerText shows the print server's own message for a 502 or 503, where it says what failed. */
+function errorFor(status: number, body: unknown, keepServerText = false): string {
   if (status === 401) return "Wrong PIN";
   if (status === 403) return "The staff panel is turned off on this booth";
   if (status === 429) return "Too many wrong PINs. Wait a minute and try again";
-  if (status === 0 || status === 502 || status === 503) return "Print server unavailable";
   const message = (body as { error?: unknown } | null)?.error;
-  return typeof message === "string" ? message : "Something went wrong";
+  const text = typeof message === "string" ? message : null;
+  if (keepServerText && text) return text;
+  if (status === 0 || status === 502 || status === 503) return "Print server unavailable";
+  return text ?? "Something went wrong";
 }
 
 /** A status read with no reply by then counts as the print server being unavailable. */
 const READ_TIMEOUT_MS = 15_000;
 /** Actions can take longer: a reprint submits a job to CUPS before it answers. */
 const ACTION_TIMEOUT_MS = 30_000;
+/** The Wi-Fi list runs nmcli's own scan first, which can take up to 40 seconds before it answers. */
+const WIFI_SCAN_TIMEOUT_MS = 45_000;
+/**
+ * A join runs a scan (up to 30 seconds) and then nmcli (up to 45 seconds, the print server's backstop).
+ * The client waits past both, so a join that succeeds is not reported as a failure.
+ */
+const WIFI_CONNECT_TIMEOUT_MS = 90_000;
 
-async function call<T>(pin: string, method: "GET" | "POST", path: string, body?: unknown): Promise<StaffCall<T>> {
+interface CallOptions {
+  /** Overrides the default abort time for this route. */
+  timeoutMs?: number;
+  /** Shows the print server's own error text, not the generic line for 502 and 503. */
+  keepServerText?: boolean;
+}
+
+async function call<T>(
+  pin: string,
+  method: "GET" | "POST",
+  path: string,
+  body?: unknown,
+  options: CallOptions = {}
+): Promise<StaffCall<T>> {
   // Without a timeout, a hung request would keep the status poll and the busy state stuck.
   const controller = new AbortController();
-  const timer = window.setTimeout(
-    () => controller.abort(),
-    method === "GET" ? READ_TIMEOUT_MS : ACTION_TIMEOUT_MS
-  );
+  const timeoutMs = options.timeoutMs ?? (method === "GET" ? READ_TIMEOUT_MS : ACTION_TIMEOUT_MS);
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(`/api/staff/${path}`, {
       method,
@@ -90,7 +111,9 @@ async function call<T>(pin: string, method: "GET" | "POST", path: string, body?:
       signal: controller.signal,
     });
     const data = (await res.json().catch(() => null)) as unknown;
-    if (!res.ok) return { ok: false, status: res.status, error: errorFor(res.status, data) };
+    if (!res.ok) {
+      return { ok: false, status: res.status, error: errorFor(res.status, data, options.keepServerText) };
+    }
     return { ok: true, data: data as T };
   } catch {
     return { ok: false, status: 0, error: errorFor(0, null) };
@@ -127,3 +150,52 @@ export const clearQueue = (pin: string) =>
 
 export const reprint = (pin: string, historyId: string, copies: number) =>
   call<{ ok: boolean; jobId: string | null }>(pin, "POST", "reprint", { historyId, copies });
+
+export interface WifiNetwork {
+  ssid: string;
+  /** 0 to 100, as nmcli reports it. */
+  signal: number;
+  /** nmcli's security text. Empty or "--" means an open network. */
+  security: string;
+  inUse: boolean;
+}
+
+export interface WifiStatus {
+  device: string | null;
+  connected: { ssid: string; state: string } | null;
+  networks: WifiNetwork[];
+}
+
+export interface WifiConnectResult {
+  ok: boolean;
+  message: string;
+}
+
+function normalizeWifi(data: Partial<WifiStatus>): WifiStatus {
+  return {
+    device: data.device ?? null,
+    connected: data.connected ?? null,
+    networks: data.networks ?? [],
+  };
+}
+
+export async function fetchWifi(pin: string): Promise<StaffCall<WifiStatus>> {
+  const res = await call<Partial<WifiStatus>>(pin, "GET", "wifi", undefined, {
+    timeoutMs: WIFI_SCAN_TIMEOUT_MS,
+    keepServerText: true,
+  });
+  return res.ok ? { ok: true, data: normalizeWifi(res.data ?? {}) } : res;
+}
+
+/**
+ * Open networks send an empty password. The print server checks the length against the scan result.
+ * The reply can take up to about 75 seconds on the server, so this call waits longer than the others.
+ */
+export const connectWifi = (pin: string, ssid: string, password: string) =>
+  call<WifiConnectResult>(pin, "POST", "wifi/connect", { ssid, password }, {
+    timeoutMs: WIFI_CONNECT_TIMEOUT_MS,
+    keepServerText: true,
+  });
+
+/** Answered before Chromium is closed, so the reply still reaches the page. */
+export const leaveKiosk = (pin: string) => call<{ ok: boolean }>(pin, "POST", "leave-kiosk");
