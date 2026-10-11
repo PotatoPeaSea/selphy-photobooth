@@ -1,0 +1,74 @@
+#!/usr/bin/env bash
+# Fake lpstat: -d, -o, -p [name], -l -p name.
+source "$(dirname "$0")/common.sh"
+fake_call lpstat "$@"
+
+want_default=0
+want_jobs=0
+long=0
+name=""
+for arg in "$@"; do
+  case "$arg" in
+    -d) want_default=1 ;;
+    -o) want_jobs=1 ;;
+    -l) long=1 ;;
+    -p) ;;
+    -*) ;;
+    *) name="$arg" ;;
+  esac
+done
+
+if [ "$want_default" = 1 ]; then
+  echo "system default destination: $PRINTER"
+  exit 0
+fi
+
+if [ "$want_jobs" = 1 ]; then
+  # A fail_jobs file makes the queue unreadable, as a hung scheduler does.
+  if [ -f "$FAKE_CUPS_STATE/fail_jobs" ]; then echo "lpstat: scheduler not responding" >&2; exit 1; fi
+  if [ -f "$FAKE_CUPS_STATE/jobs" ]; then cat "$FAKE_CUPS_STATE/jobs"; fi
+  exit 0
+fi
+
+state="$(fake_state)"
+if [ "$state" = unknown ]; then
+  if [ -n "$name" ]; then
+    echo "lpstat: Unknown destination \"$name\"" >&2
+    exit 1
+  fi
+  exit 0
+fi
+
+[ -n "$name" ] || name="$PRINTER"
+since="enabled since Sun 11 Oct 2026 10:00:00 AM BST"
+
+case "$state" in
+  disabled)
+    echo "printer $name disabled since Sun 11 Oct 2026 10:00:00 AM BST -"
+    ;;
+  busy)
+    first="$(head -n 1 "$FAKE_CUPS_STATE/jobs" 2>/dev/null | awk '{ print $1 }')"
+    echo "printer $name now printing ${first:-$name-0}.  $since"
+    ;;
+  *)
+    echo "printer $name is idle.  $since"
+    ;;
+esac
+
+[ "$long" = 1 ] || exit 0
+
+# The Description line carries the word "ink" on purpose: device description
+# text must not be read as an ink alert.
+printf '\t%s\n' "Form mounted:"
+printf '\t%s\n' "Description: Photobooth SELPHY ink station"
+printf '\t%s\n' "Connection: direct usb"
+# CUPS names the PPD file after the queue. The queue name must not read as a state.
+printf '\t%s\n' "Interface: /etc/cups/ppd/$name.ppd"
+case "$state" in
+  jammed) printf '\t%s\n' "Alerts: media-jam-error" ;;
+  out_of_paper) printf '\t%s\n' "Alerts: media-empty-error" ;;
+  out_of_ink) printf '\t%s\n' "Alerts: marker-supply-empty-error" ;;
+  cover_open) printf '\t%s\n' "Alerts: cover-open-error" ;;
+  offline) printf '\t%s\n' "Alerts: offline-report" ;;
+  *) printf '\t%s\n' "Alerts: none" ;;
+esac

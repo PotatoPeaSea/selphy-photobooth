@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+# Fake lp: reads the job from stdin, records it in the jobs file, prints
+# "request id is <printer>-<n> (1 file(s))" like CUPS does.
+source "$(dirname "$0")/common.sh"
+fake_call lp "$@"
+
+dest=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -d) dest="$2"; shift 2 ;;
+    -n|-o|-t) shift 2 ;;
+    *) shift ;;
+  esac
+done
+dest="${dest:-$PRINTER}"
+
+cat > "$FAKE_CUPS_STATE/last_lp_input"
+size="$(wc -c < "$FAKE_CUPS_STATE/last_lp_input" | tr -d ' ')"
+
+if [ "$(fake_state)" = unknown ]; then
+  echo "lp: Destination \"$dest\" not found" >&2
+  exit 1
+fi
+
+job_number="$(
+  (
+    flock 9
+    n="$(cat "$FAKE_CUPS_STATE/next_id" 2>/dev/null || echo 1)"
+    echo $((n + 1)) > "$FAKE_CUPS_STATE/next_id"
+    printf '%s-%s %s %s %s\n' "$dest" "$n" "${USER:-homeserver}" "$size" \
+      "$(date '+%a %d %b %Y %I:%M:%S %p %Z')" >> "$FAKE_CUPS_STATE/jobs"
+    echo "$n"
+  ) 9>"$FAKE_CUPS_STATE/lock"
+)"
+echo "request id is $dest-$job_number (1 file(s))"

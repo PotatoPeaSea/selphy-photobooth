@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Fake cupsaccept: records the call only.
+source "$(dirname "$0")/common.sh"
+fake_call cupsaccept "$@"

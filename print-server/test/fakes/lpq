@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Fake lpq: -P name. Reports "not ready" when the printer is offline.
+source "$(dirname "$0")/common.sh"
+fake_call lpq "$@"
+
+name="$PRINTER"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -P) name="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+
+case "$(fake_state)" in
+  unknown)
+    echo "lpq: Unknown destination \"$name\"" >&2
+    exit 1
+    ;;
+  offline)
+    echo "$name is not ready"
+    ;;
+  disabled)
+    echo "$name is paused"
+    ;;
+  *)
+    echo "$name is ready"
+    ;;
+esac
+if [ -s "$FAKE_CUPS_STATE/jobs" ]; then
+  cat "$FAKE_CUPS_STATE/jobs"
+else
+  echo "no entries"
+fi

@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "start": "node index.mjs",
-    "dev": "node --watch index.mjs"
+    "dev": "node --watch index.mjs",
+    "test": "node --test test/*.test.mjs"
   },
   "dependencies": {
     "cors": "^2.8.5",

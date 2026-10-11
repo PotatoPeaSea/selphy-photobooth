@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Fake cupsenable: a disabled printer becomes ready. Jams and other faults stay put.
+source "$(dirname "$0")/common.sh"
+fake_call cupsenable "$@"
+if [ "$(fake_state)" = disabled ]; then
+  printf '%s' ready > "$FAKE_CUPS_STATE/state"
+fi

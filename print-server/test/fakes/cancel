@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Fake cancel: `cancel -a [printer]` clears the queue; `cancel <job-id>...` removes jobs.
+source "$(dirname "$0")/common.sh"
+fake_call cancel "$@"
+
+for arg in "$@"; do
+  if [ "$arg" = "-a" ]; then
+    : > "$FAKE_CUPS_STATE/jobs"
+    exit 0
+  fi
+done
+
+status=0
+for id in "$@"; do
+  if ! awk -v id="$id" '$1 == id { found = 1 } END { exit !found }' "$FAKE_CUPS_STATE/jobs" 2>/dev/null; then
+    echo "cancel: Unknown job ID \"$id\"" >&2
+    status=1
+    continue
+  fi
+  awk -v id="$id" '$1 != id' "$FAKE_CUPS_STATE/jobs" > "$FAKE_CUPS_STATE/jobs.tmp"
+  mv "$FAKE_CUPS_STATE/jobs.tmp" "$FAKE_CUPS_STATE/jobs"
+done
+exit $status
