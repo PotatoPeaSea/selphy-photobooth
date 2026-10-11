@@ -19,6 +19,27 @@ kiosk's Chromium opens. The SELPHY printer is Canon vendor `04a9` too, so the
 DSLR check skips it — without that the script loops on gphoto2 and the
 feed stays empty.
 
+### Camera recovery
+
+The script restarts a feed that stops getting new frames (for the DSLR it also
+runs `gphoto2 --reset`). It switches between the DSLR and the Pi Camera only
+after the Canon has been off USB for 10 s, or back on USB for 5 s, so a brief
+USB drop doesn't restart the kiosk. The timings are `WEBCAM_*` environment
+variables with their defaults in the script.
+
+If the Canon is on USB but `gphoto2` exits or hangs before any frame (for
+example "Could not claim the USB device" while gvfs holds it), the script resets
+the camera and retries. After three such failures in a row it uses the Pi Camera
+until the Canon is unplugged for 10 s or more. A failed reset is logged.
+
+These two steps are on the Pi and are not done by the scripts:
+
+- Turn off the Canon's auto power-off, or use a dummy-battery DC coupler so the
+  battery can't run out. Auto power-off drops the camera off USB.
+- Mask gvfs's gphoto2 volume monitor, which grabs the camera when it comes back
+  on USB and blocks gphoto2. As user `pi`:
+  `systemctl --user mask gvfs-gphoto2-volume-monitor`
+
 ## Printer (SELPHY CP910)
 
 The CP910 has no IPP-over-USB, so use the Gutenprint driver over USB:

@@ -43,6 +43,8 @@ export default function PhotoboothApp() {
   const [addons, setAddons] = useState<AddOns>(DEFAULT_ADDONS);
   const [copies, setCopies] = useState(1);
   const [delay, setDelay] = useState(DEFAULT_DELAY);
+  // True while the four shots run; the idle timeout waits for the run to finish.
+  const [shooting, setShooting] = useState(false);
   // Bumped on every reset so late async results from an old session are ignored.
   const session = useRef(0);
   const printing = useRef(false);
@@ -63,7 +65,12 @@ export default function PhotoboothApp() {
     setStep({ name: "scan" });
   }, []);
 
-  useIdle(IDLE_MS, reset, step.name === "mode" || step.name === "shoot" || step.name === "review");
+  // A run with camera recoveries can outlast IDLE_MS, and a reset would discard its shots.
+  useIdle(
+    IDLE_MS,
+    reset,
+    step.name === "mode" || step.name === "review" || (step.name === "shoot" && !shooting)
+  );
 
   const admit = useCallback((tap: NfcTap | null) => {
     badge.current = tap ? galleryBadge(tap) : null;
@@ -138,7 +145,9 @@ export default function PhotoboothApp() {
         <ShootScreen
           mode={step.mode}
           delay={delay}
-          camera={camera}
+          camera={camera.state}
+          onRestartCamera={camera.restart}
+          onRunningChange={setShooting}
           onDone={(shots) => setStep({ name: "review", mode: step.mode, shots })}
           onBack={() => setStep({ name: "mode" })}
         />
