@@ -1,16 +1,195 @@
-node_modules
+# ---------------------------------------------------------------------------
+# Secrets and environment files. Keep only the template, .env.example.
+# (BLOB_READ_WRITE_TOKEN, DATABASE_URL, GALLERY_API_KEY, STAFF_PIN, ... live here.)
+# ---------------------------------------------------------------------------
+.env
+.env.*
+!.env.example
+*.env
+!*.env.example
+.envrc
+.direnv/
+
+# Keys, certificates, tokens, credentials
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+*.der
+*.jks
+*.keystore
+*.gpg
+*.asc
+id_rsa*
+id_ed25519*
+id_ecdsa*
+*.ppk
+.npmrc
+.netrc
+.pypirc
+*.token
+*token*.txt
+credentials*.json
+service-account*.json
+secrets/
+secrets.*
+.secrets/
+upload-key*
+*.upload-key
+.tailscale/
+tailscaled.state
+.mcp.json
+.claude/settings.local.json
+
+# ---------------------------------------------------------------------------
+# Vercel / Next.js build output
+# ---------------------------------------------------------------------------
+.vercel
 .next
 .next-*
 out
-.env*.local
-.data
-/.env
+build
+dist
+.turbo
+next-env.d.ts.bak
+*.tsbuildinfo
 
-# Large Figma SVG exports (2–58 MB each). Kept on disk as extraction sources;
+# ---------------------------------------------------------------------------
+# Dependencies and package-manager stores
+# ---------------------------------------------------------------------------
+node_modules
+.pnpm-store
+.pnpm-debug.log*
+.yarn/
+.pnp.*
+.npm/
+.eslintcache
+
+# ---------------------------------------------------------------------------
+# Logs, coverage, caches
+# ---------------------------------------------------------------------------
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+coverage/
+.nyc_output/
+.cache/
+*.pid
+*.seed
+
+# ---------------------------------------------------------------------------
+# Locally written runtime data
+# lib/localShareStore.ts writes strips to ./.data/strips (share-link fallback).
+# print-server/history.mjs (post-event-fixes branch) keeps print history in
+# $PRINT_HISTORY_DIR, default ~/.cache/photobooth/prints.
+# ---------------------------------------------------------------------------
+.data
+.data/
+/data/
+/uploads/
+/tmp/
+prints/
+print-history/
+history/
+index.json.*.tmp
+
+# ---------------------------------------------------------------------------
+# Guest photos, strips, recordings, databases, archives
+# (the repo's own artwork lives in public/brand/ and design/examples/, which are
+# explicitly kept below)
+# ---------------------------------------------------------------------------
+photos/
+captures/
+guest-photos/
+strips/
+gallery/
+recordings/
+*.jpg
+*.jpeg
+*.heic
+*.heif
+*.cr2
+*.cr3
+*.raw
+*.dng
+*.mp4
+*.mov
+*.webm
+*.mkv
+*.mp3
+*.wav
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+*.sql
+*.dump
+*.csv
+
+# Brand artwork the app ships with
+!public/**
+!design/examples/**
+
+# ---------------------------------------------------------------------------
+# Large Figma SVG exports (2-58 MB each). Kept on disk as extraction sources;
 # design/examples/ has PNG twins and public/brand/ has the pieces cut from them.
+# ---------------------------------------------------------------------------
 /design/svg/applications-open-post.svg
 /design/svg/code-matrices-post.svg
 /design/svg/dynamic-loops-post-*.svg
 /design/svg/illustration-*.svg
 /design/svg/portraits-*.svg
-*.tsbuildinfo
+
+# ---------------------------------------------------------------------------
+# IDEs and editors
+# ---------------------------------------------------------------------------
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.code-workspace
+.fleet/
+.history/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+
+# ---------------------------------------------------------------------------
+# OS junk
+# ---------------------------------------------------------------------------
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.directory
+.Trash-*
+.fuse_hidden*
+.nfs*
+
+# ---------------------------------------------------------------------------
+# Local tooling
+# ---------------------------------------------------------------------------
+.claude/
+*.local
+*.bak
+*.orig
+*.rej

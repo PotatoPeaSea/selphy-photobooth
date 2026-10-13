@@ -15,8 +15,6 @@ SVG exports of the same 13 example frames as the PNGs in the `stormhacks-design`
 | `dynamic-loops-post-2.svg` | Post: otter framed by `[ ];` | Mostly; grain texture embedded as raster |
 | `applications-open-post.svg` | "Applications Open Now" post | Mostly; grain texture embedded as raster |
 | `code-matrices-post.svg` | Code matrix post | Mostly; grain texture embedded as raster |
-| `portraits-speaker-cards.svg` | Portrait treatments (workshop, judge cards) | No — photos embedded as rasters |
-| `portraits-full-body-closeup.svg` | Full-body vs close-up portraits | No — photos embedded as rasters |
 
 The logo and graphic-element files are the most useful as SVG. For the portrait posts, the PNGs are lighter and look the same.
 

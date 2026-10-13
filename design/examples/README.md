@@ -13,7 +13,5 @@ PNG exports of example frames from the StormHacks 2026 Brand Guide, exported 202
 | `applications-open-post.png` | "Applications Open Now" post | [3519:3635](https://www.figma.com/design/1tIhTu60bCUhAYOeFceujz/StormHacks-2026?node-id=3519-3635) |
 | `code-matrices-core.png` | Core code matrices with `{i++;}` | [3473:4562](https://www.figma.com/design/1tIhTu60bCUhAYOeFceujz/StormHacks-2026?node-id=3473-4562) |
 | `code-matrices-post.png` | Code matrix post example | [3519:1263](https://www.figma.com/design/1tIhTu60bCUhAYOeFceujz/StormHacks-2026?node-id=3519-1263) |
-| `portraits-speaker-cards.png` | Portrait treatments (workshop, judge cards) | [3541:11539](https://www.figma.com/design/1tIhTu60bCUhAYOeFceujz/StormHacks-2026?node-id=3541-11539) |
-| `portraits-full-body-closeup.png` | Full-body vs close-up portrait treatments | [3541:12379](https://www.figma.com/design/1tIhTu60bCUhAYOeFceujz/StormHacks-2026?node-id=3541-12379) |
 | `logo-primary.png` | Primary logo `[ StormHacks 26’ ];` | [3460:3818](https://www.figma.com/design/1tIhTu60bCUhAYOeFceujz/StormHacks-2026?node-id=3460-3818) |
 | `logo-dont.png` | Logo misuse examples | [3473:4406](https://www.figma.com/design/1tIhTu60bCUhAYOeFceujz/StormHacks-2026?node-id=3473-4406) |
