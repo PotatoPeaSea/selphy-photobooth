@@ -15,7 +15,15 @@ This repository is the booth software and device setup as it ran at StormHacks 2
 3. **Shoot.** One tap takes four automatic shots from the live view. The live preview is mirrored; the print is not.
 4. **Review.** Choose one of eight frame designs (including a sponsor frame), optional stickers, tagline and confetti, up to three copies, or retake all. The guest then chooses whether the photos are listed publicly on the gallery.
 5. **Print and share.** The strip is uploaded and the printer job waits for the share link, so the printed strip carries its QR code. The guest's full-resolution shots are attached to the gallery photo after the print is sent.
-6. **Done.** The screen shows the QR code for the digital copy and returns to the scan screen after 45 seconds or on tap. Mode, shoot and review screens return to scan after 60 seconds without touch.
+6. **Done.** The screen shows the QR code for the digital copy and returns to the scan screen after 45 seconds or on tap. Mode, shoot and review screens return to scan after 60 seconds without touch. If the printer is jammed or out of paper, the screen says so in plain words, and once the strip is queued it shows how many prints are ahead of it.
+
+Behind the guest flow there are three reliability features for running unattended at an event:
+
+- **Camera recovery.** The booth notices a frozen or dropped live view and reconnects without restarting the kiosk.
+- **Printer problem handling.** Jams, paper, ink and open covers are read from CUPS. A print sent in one of those states is held in the queue instead of failing, and the guest sees a clear status.
+- **Staff panel.** Five taps in the top-right corner of the Scan screen, then a PIN, open a panel for the print queue, Wi-Fi setup and leaving kiosk mode.
+
+These were written after the event, in response to what went wrong at it. They are tested against fake hardware (fake CUPS and `nmcli` commands) and in Playwright. They have not yet run on the booth hardware, so the real camera, the real printer's CUPS messages and the Pi's `nmcli` output are unchecked.
 
 ## Hardware
 
@@ -57,7 +65,11 @@ The kiosk UI never talks to the camera or the printer directly. The camera pipel
 - **The DSLR as a webcam.** The camera's movie stream is piped through FFmpeg into a v4l2loopback device, so the browser uses plain `getUserMedia` and never needs gphoto2. A shell supervisor switches to the Pi Camera when no Canon is detected. The SELPHY printers share Canon's USB vendor ID, so detection filters them out by product name.
 - **One renderer for preview, share and print.** Print geometry lives in `lib/print/layouts.ts` for a 1200×1800 sheet at 300 DPI. The grid is laid out landscape and rotated only for the printer, and the same canvas renderer produces the review preview, the shareable image and the print.
 - **A QR code on every strip, with fallbacks.** The share step tries the home gallery, then Vercel Blob, then local disk (see the diagram). The print waits for the link so the QR is on the paper. If the upload fails entirely, the strip still prints without a QR, and the guest still sees the failure on the Done screen.
-- **Printing that cannot stall the booth.** The print server wraps `lp`, `lpstat`, `lpq`, `cupsenable` and `cupsaccept`. It rejects jobs for a disabled or unready printer, reports queue depth, and exposes a resume endpoint that the Review screen's printer chip calls. Shooting never waits on printer state.
+- **Printing that cannot stall the booth.** The print server wraps `lp`, `lpstat`, `lpq`, `cupsenable` and `cupsaccept`. It rejects jobs for a disabled or offline printer, reports queue depth, and exposes a resume endpoint that the Review screen's printer chip calls. Shooting never waits on printer state.
+- **Printer faults as states, not errors.** `print-server/printerState.mjs` is a pure module that classifies the text of `lpstat` into ready, busy, jammed, out of paper, out of ink, cover open, offline or disabled, and maps each to a short guest message ("Printer jammed — staff are on it"). It skips device description lines, so a printer called "Ink Station" is not read as out of ink. A mechanical fault still accepts the print and CUPS holds it, so the guest's strip comes out once staff clear the fault. The Done screen polls the queue and shows how many prints are ahead of the guest's, and an unreadable queue is never mistaken for a finished print.
+- **Camera recovery in two layers.** On the Pi, the webcam script watches ffmpeg's frame counter and restarts a feed that has stalled for 5 seconds. A Canon that is on USB but never gives a frame is reset with `gphoto2 --reset`, and after three failed tries the Pi Camera takes over until the Canon is unplugged. Source switches wait out a short USB drop, so a brief glitch does not restart the kiosk. In the browser, `useCamera` listens for the video track ending or staying muted and reopens it with backoff (0.5 s up to 5 s), asking for a volunteer after four failures while it keeps retrying. The shoot screen restarts a feed with no new frame and never takes a photo from a frame older than 1.5 seconds. The backoff and stall checks are pure functions in `components/booth/cameraRecovery.ts`.
+- **A staff panel that is safe to leave on a public kiosk.** Hidden behind a five-tap gesture and a 4 to 8 digit PIN from `STAFF_PIN`; with no valid PIN set, the panel is off. The PIN is compared in constant time, five wrong guesses lock every staff route for a minute (one global counter, so rotating addresses does not help), and the PIN is held in memory only. Staff routes get no CORS headers and are reached through a Next.js proxy, so a web page cannot try PINs. The panel shows the queue and can cancel a job, clear the queue, resume the printer, and reprint any of the last 20 saved strips. Inputs that reach `lp`, `nmcli` or `pkill` are validated and passed as argument arrays, never through a shell.
+- **Wi-Fi setup and a way out of kiosk mode.** A Wi-Fi tab scans and joins networks through `nmcli`, with an on-screen keyboard for the password, since the kiosk has no physical one. The password is validated for the network's security type and is never logged or saved by the print server. A Booth tab closes the kiosk after a confirm, which opens the desktop; a Back to Booth launcher starts it again. A polkit rule lets the print server's user scan and join networks without a password prompt.
 - **Two printers at the event.** To keep queues moving through thermal throttling, the booth ran two SELPHY printers during StormHacks. The public code targets one CUPS queue through `PRINTER_NAME`; the routing used at the event is not part of this repository.
 - **Hardware debugging.** A SELPHY was disassembled and its supply voltages and MCU-to-motor-controller communication were probed during jammed and normal runs, to test whether the jams were electrical. This repository makes no root-cause claim.
 
@@ -70,16 +82,22 @@ The kiosk UI never talks to the camera or the printer directly. The camera pipel
 - **Sharing:** FastAPI photo gallery over Tailscale Funnel, Vercel Blob, `qrcode`
 - **Ops:** systemd units, labwc and Chromium kiosk, udev and polkit rules, Fusion 360 for the enclosure
 
+## Tests
+
+The print server has tests in `print-server/test/`, run with `cd print-server && npm test` (Node's built-in test runner). They never touch real hardware. `print-server/test/fakes/` holds stand-in `lp`, `lpstat`, `lpq`, `cancel`, `cupsenable`, `cupsaccept`, `nmcli` and `pkill` commands that read their state from a temporary directory. A test starts the real server on a random port with the fakes first on `PATH`, sets the fake printer to jammed, offline or empty, and checks what the HTTP API does. Separate test files cover the printer-state parser, print history, the Wi-Fi parsers and validators, the PIN lock-out and the staff routes. The booth UI recovery paths were checked in Playwright. The CUPS and `nmcli` text in the fakes is modelled on documented output, not captured from the booth's printer.
+
 ## Repository layout
 
 ```
 app/                 Next.js routes: kiosk page, /view guest page, /dev/print and /dev/brand harnesses, API routes
-components/          Booth screens (scan, mode, shoot, review, done) and brand UI primitives
+components/          Booth screens (scan, mode, shoot, review, done), camera recovery hooks, and brand UI primitives
+components/staff/    Staff panel: PIN pad, printer and queue tab, Wi-Fi tab, Booth tab, on-screen keyboard
 lib/print/           Print layouts, frame renderer, capture crop
 lib/badge/           NFC reader, NDEF parsing, tap-to-challenge logic
 lib/*Client.ts       Gallery, Vercel Blob, local-disk and CUPS clients; share helpers
-print-server/        Express wrapper around the CUPS commands
-deploy/pi/           systemd units, webcam feed script, kiosk launcher, udev/polkit rules, v4l2loopback config
+print-server/        Express wrapper around CUPS and nmcli: printer state, print history, Wi-Fi, staff routes
+print-server/test/   Node tests, with fake CUPS and nmcli commands in test/fakes/
+deploy/pi/           systemd units, webcam feed script, kiosk launcher, Back to Booth launcher, udev/polkit rules, v4l2loopback config
 docs/                Gallery API, post-event issue list, next issues, redesign plan
 design/              Brand guide notes and reference artwork
 public/brand/        Illustrations, logos and the sponsor mark used on frames
@@ -132,6 +150,9 @@ Set in `.env.local`. `.env.example` lists them with placeholder values.
 | `PRINTER_NAME` | CUPS queue to print to. Empty uses the CUPS default. |
 | `CUPS_MEDIA_OPTION` | CUPS page size. Defaults to `Postcard`. |
 | `PRINT_SERVER_PORT` | Print server port. Defaults to 3847. |
+| `STAFF_PIN` | 4 to 8 digits. Enables the staff panel and its print-server routes. Empty, or any other value, leaves the panel off. |
+| `PRINT_HISTORY_DIR` | Where the last 20 printed strips are saved for staff reprints. Defaults to a cache folder in the home directory. |
+| `PRINT_SERVER_URL` | Where the Next.js server finds the print server. Defaults to localhost on `PRINT_SERVER_PORT`. |
 | `GALLERY_UPLOAD_URL`, `GALLERY_API_KEY` | Home gallery and an upload-only key. Optional. Keys expire, see [docs/gallery-api.md](docs/gallery-api.md). |
 | `BLOB_READ_WRITE_TOKEN` | Vercel Blob credentials for the second share option. Optional. |
 | `DATABASE_URL`, `CHALLENGE_ID` | Event Postgres database and the challenge that badge taps complete. |
@@ -141,12 +162,9 @@ Set in `.env.local`. `.env.example` lists them with placeholder values.
 
 ### In progress
 
-These reliability features are on a private development branch and are not in this repository:
-
-- Camera recovery: detect a frozen or dropped live view and reconnect without restarting the kiosk.
-- Printer jam detection, with a clear guest-facing status while a jam is cleared.
-- A staff panel on the kiosk for queue and printer actions.
-- Wi-Fi setup from kiosk mode, so a booth can join a new network at a venue.
+- Run the reliability work above on the booth hardware: the real camera and printer, the Pi's `nmcli` output, and leaving and returning to the kiosk.
+- A hotspot and setup page for a booth that boots with no known network.
+- WEP networks are refused, because the WPA password rules apply to them too.
 
 ### Next
 
