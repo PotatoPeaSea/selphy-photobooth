@@ -6,7 +6,7 @@ Problems found running the booth at the event. 1–3 are software fixes.
 get lost. Each fix ends with verification and a commit, as in the redesign
 plan.
 
-Status (2026-10-11, branch `post-event-fixes`, not merged): the software fixes for
+Status (2026-10-11): the software fixes for
 items 1–3 are done, one commit per part. Each was checked with fake hardware and in
 Playwright; none has run on the Pi or with the real camera or printer.
 
