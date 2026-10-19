@@ -4,7 +4,12 @@ A touch-screen photo booth for a hackathon. A Canon DSLR feeds live view to a Ra
 
 **120 parties · ~200 prints · StormHacks 2026**
 
-<!-- CAD-RENDERS: enclosure renders go here -->
+<p align="center">
+  <img src="cad/selphy-display-box/renders/assembly-front-right.png" alt="Selphy Display Box v7 enclosure assembly, front right" width="440">
+  <img src="cad/selphy-display-box/renders/assembly-rear-left.png" alt="Selphy Display Box v7 enclosure assembly, rear left" width="440">
+</p>
+
+<p align="center"><sub>The printer and display enclosure, v7, rendered from its Fusion 360 model. The files are in <a href="cad/selphy-display-box/">cad/selphy-display-box/</a>.</sub></p>
 
 This repository is the booth software and device setup as it ran at StormHacks 2026. It is a solo build: software, touch UI, print rendering, hardware integration and the printer and display enclosure. Illustrations and brand assets came from the StormHacks 2026 design team (see [Credits](#credits)).
 
@@ -56,7 +61,7 @@ These were written after the event, in response to what went wrong at it. They a
 
 ### Enclosure
 
-The enclosure is the Selphy Display Box, v7 (the latest version of the design). [cad/selphy-display-box/](cad/selphy-display-box/) holds its 11 parts in three forms: printable STL files, STEP files for other CAD tools, and the Fusion 360 archives. Its [README](cad/selphy-display-box/README.md) lists the print orientation for each part, the inserts and screws, and the assembly steps. It is 208 × 232 × 171 mm overall, and every part fits a 256 mm print bed.
+The enclosure is the Selphy Display Box, v7 (the latest version of the design). [cad/selphy-display-box/](cad/selphy-display-box/) holds the printable STL files (12 pieces, including both DSLR legs), STEP files for other CAD tools, and Fusion 360 archives of each part and of the whole assembly. Its [README](cad/selphy-display-box/README.md) has the printing table, the hardware list and the assembly steps. It is 208 × 232 × 171 mm overall, and every part fits a 256 mm print bed.
 
 ## Architecture
 
@@ -121,7 +126,7 @@ print-server/test/   Node tests, with fake CUPS and nmcli commands in test/fakes
 deploy/pi/           systemd units, webcam feed script, kiosk launcher, Back to Booth launcher, udev/polkit rules, v4l2loopback config
 docs/                Gallery API, post-event issue list, next issues, redesign plan
 design/              Brand guide notes, reference artwork and sample frame renders
-cad/                 Enclosure CAD: printable STL parts for the Selphy Display Box (v7) and its README
+cad/                 Enclosure CAD for the Selphy Display Box (v7): STL, STEP and Fusion files, renders, and the printing and assembly guide
 public/brand/        Illustrations, logos and the sponsor mark used on frames
 scripts/brand/       Generates lib/brand/shapes.ts from the brand SVGs
 instrumentation.ts   Starts the badge reader when the Next.js server boots
