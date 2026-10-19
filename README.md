@@ -56,7 +56,7 @@ These were written after the event, in response to what went wrong at it. They a
 
 ### Enclosure
 
-The enclosure is the Selphy Display Box, v7 (the latest version of the design). [cad/selphy-display-box/](cad/selphy-display-box/) holds its 11 printable STL parts, and its [README](cad/selphy-display-box/README.md) lists the print orientation for each part, the inserts and screws, and the assembly steps. It is 208 × 232 × 171 mm overall, and every part fits a 256 mm print bed.
+The enclosure is the Selphy Display Box, v7 (the latest version of the design). [cad/selphy-display-box/](cad/selphy-display-box/) holds its 11 parts in three forms: printable STL files, STEP files for other CAD tools, and the Fusion 360 archives. Its [README](cad/selphy-display-box/README.md) lists the print orientation for each part, the inserts and screws, and the assembly steps. It is 208 × 232 × 171 mm overall, and every part fits a 256 mm print bed.
 
 ## Architecture
 
