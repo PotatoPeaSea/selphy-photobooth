@@ -5,11 +5,11 @@ A touch-screen photo booth for a hackathon. A Canon DSLR feeds live view to a Ra
 **120 parties · ~200 prints · StormHacks 2026**
 
 <p align="center">
-  <img src="cad/selphy-display-box/renders/assembly-front-right.png" alt="Selphy Display Box v7 enclosure assembly, front right" width="440">
-  <img src="cad/selphy-display-box/renders/assembly-rear-left.png" alt="Selphy Display Box v7 enclosure assembly, rear left" width="440">
+  <img src="cad/selphy-display-box/renders/full-assembly-front-right.png" alt="Full v7 assembly with the enclosure, display, camera and printer, front right" width="440">
+  <img src="cad/selphy-display-box/renders/full-assembly-rear-left.png" alt="Full v7 assembly with the enclosure, display, camera and printer, rear left" width="440">
 </p>
 
-<p align="center"><sub>The printer and display enclosure, v7, rendered from its Fusion 360 model. The files are in <a href="cad/selphy-display-box/">cad/selphy-display-box/</a>.</sub></p>
+<p align="center"><sub>The v7 assembly from its Fusion 360 model: the printed enclosure with the display, camera and printer it houses. The files are in <a href="cad/selphy-display-box/">cad/selphy-display-box/</a>.</sub></p>
 
 This repository is the booth software and device setup as it ran at StormHacks 2026. It is a solo build: software, touch UI, print rendering, hardware integration and the printer and display enclosure. Illustrations and brand assets came from the StormHacks 2026 design team (see [Credits](#credits)).
 
@@ -61,7 +61,7 @@ These were written after the event, in response to what went wrong at it. They a
 
 ### Enclosure
 
-The enclosure is the Selphy Display Box, v7 (the latest version of the design). [cad/selphy-display-box/](cad/selphy-display-box/) holds the printable STL files (12 pieces, including both DSLR legs), STEP files for other CAD tools, and Fusion 360 archives of each part and of the whole assembly. Its [README](cad/selphy-display-box/README.md) has the printing table, the hardware list and the assembly steps. It is 208 × 232 × 171 mm overall, and every part fits a 256 mm print bed.
+The enclosure is the Selphy Display Box, v7 (the latest version of the design). [cad/selphy-display-box/](cad/selphy-display-box/) holds the printable STL files (12 pieces, including both DSLR legs), STEP files for other CAD tools, and Fusion 360 archives of each part and of the full assembly, which includes the reference models for the display, Pi, camera and printer. Its [README](cad/selphy-display-box/README.md) has the printing table, the hardware list and the assembly steps. It is 208 × 232 × 171 mm overall, and every part fits a 256 mm print bed.
 
 ## Architecture
 
