@@ -10,18 +10,12 @@ This repository is the booth software and device setup as it ran at StormHacks 2
 
 ## Sample frames
 
-Every print uses one of eight frames, and each frame has a Two Strips layout and a Full Frame layout. The photos in these samples are stand-ins, not guests. All sixteen renders are in [design/frames/](design/frames/).
+Each print uses one of eight frames, and each frame has a Two Strips layout and a Full Frame layout. These samples show Stormy and Sparky. The photos are stand-ins, not guests, and the renders are in [design/frames/](design/frames/).
 
 | Frame | Two Strips | Full Frame |
 | --- | --- | --- |
 | **Stormy** | <img src="design/frames/strip-stormy.png" alt="Stormy frame, Two Strips" width="140"> | <img src="design/frames/grid-stormy.png" alt="Stormy frame, Full Frame" width="210"> |
 | **Sparky** | <img src="design/frames/strip-sparky.png" alt="Sparky frame, Two Strips" width="140"> | <img src="design/frames/grid-sparky.png" alt="Sparky frame, Full Frame" width="210"> |
-| **Orange** | <img src="design/frames/strip-orange.png" alt="Orange frame, Two Strips" width="140"> | <img src="design/frames/grid-orange.png" alt="Orange frame, Full Frame" width="210"> |
-| **Clean** | <img src="design/frames/strip-clean.png" alt="Clean frame, Two Strips" width="140"> | <img src="design/frames/grid-clean.png" alt="Clean frame, Full Frame" width="210"> |
-| **Garden** | <img src="design/frames/strip-garden.png" alt="Garden frame, Two Strips" width="140"> | <img src="design/frames/grid-garden.png" alt="Garden frame, Full Frame" width="210"> |
-| **Crew** | <img src="design/frames/strip-crew.png" alt="Crew frame, Two Strips" width="140"> | <img src="design/frames/grid-crew.png" alt="Crew frame, Full Frame" width="210"> |
-| **Hacker** | <img src="design/frames/strip-hacker.png" alt="Hacker frame, Two Strips" width="140"> | <img src="design/frames/grid-hacker.png" alt="Hacker frame, Full Frame" width="210"> |
-| **1Password** (sponsor) | <img src="design/frames/strip-onepassword.png" alt="1Password sponsor frame, Two Strips" width="140"> | <img src="design/frames/grid-onepassword.png" alt="1Password sponsor frame, Full Frame" width="210"> |
 
 ## Design references
 
