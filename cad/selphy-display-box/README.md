@@ -1,18 +1,21 @@
-# Selphy Display Box
+# Selphy Display Box (v7): CAD, printing and assembly
 
-Compact enclosure for the Display Stand V4 screen (8" DSI + Quectel Pi, bare, bolted to the display)
-with a Canon SELPHY CP910 behind it. Prints exit on the **right**, the paper shuttle exits the
-**left** straight into open air. Fusion file: **Photobooth / Selphy Display Box V1**.
+The enclosure for the Display Stand V4 screen (8" DSI + Quectel Pi, bare, bolted to the display) with a Canon SELPHY CP910 behind it. Prints exit on the **right**, and the paper shuttle exits the **left** straight into open air.
 
-Overall: **208 W x 232 D x 171 H mm**. The DSLR platform adds 15 mm on top. 3 mm walls. Every part fits a 256 mm bed.
+Overall: **208 W x 232 D x 171 H mm**. The DSLR platform adds 15 mm on top. Walls are 3 mm. Every part fits a 256 mm print bed.
 
-This folder has the **v7** design, the latest version, in three forms:
+![Assembly render, front right](renders/assembly-front-right.png)
 
-- `*.stl`: one printable mesh per part, for a slicer.
-- `step/*.step`: a STEP file per part, for other CAD tools. The unit inside is centimetres, the same as Fusion's.
-- `fusion/*.f3d`: a Fusion 360 archive per part, to open and edit in Fusion.
+## What is in this folder
 
-The `DSLR_Legs` files hold both legs, as the Fusion component does. The STL set has the right leg only (`DSLR_Leg_R.stl`).
+| Folder | Contents | Use it for |
+|---|---|---|
+| `stl/` | 12 printable STL files, one per printed piece. The legs are two files: `DSLR_Leg_R.stl` and `DSLR_Leg_L.stl`, which are mirror images. | Printing (open in any slicer) |
+| `step/` | 11 STEP files, one per part. `DSLR_Legs.step` holds both legs. | Other CAD tools |
+| `fusion/` | Fusion 360 archives: one per part, plus `Selphy_Display_Box_V1_assembly.f3d`, the whole enclosure assembly with all 11 parts in their design positions. | Opening and editing in Fusion 360 |
+| `renders/` | Renders of the assembly. | Reference |
+
+The Fusion 360 document is **Photobooth / Selphy Display Box V1**, and these files are from its latest version (v7, see below). The assembly archive contains the enclosure parts only. The document also has reference models for the display, the Pi, the camera and the printer, which the enclosure is designed around. They are not included because they are third-party models.
 
 Versions (Fusion / git):
 - v5 = **baseline** (git tag `baseline`)
@@ -21,22 +24,24 @@ Versions (Fusion / git):
 - v7 = camera board flush on the plastic (mounted upside down) with a tight lens hole, DSLR moved back on a
   bridge platform over the deck, Surge mark on the deck hatch, wordmark removed
 
-## Parts and print orientation
+## Printing
 
-| Part | Size (mm) | Print | Notes |
-|---|---|---|---|
-| Base | 232 x 202 x 15 | ribs down (floor up) | 3 mm floor bridges between ribs (max span ~74 mm) |
-| Side_L / Side_R | 232 x 171 x 3 | flat | countersinks face up |
-| Bezel (screen frame + tower top) | 202 x 162 x 73 | front face on the bed | tree supports under the 4 display struts and the tower-top bosses |
-| Deck (printer lid) | 202 x 157 x 11 | top face down, lips up | |
-| Rear Wall | 202 x 88 x 11 | outer face down | |
-| Back Door | 203 x 74 x 5 | outer face down | Surge mark debossed 0.8 mm into the first layers (swap filament for a 2-colour logo) |
-| Hatch | 109 x 73 x 3 | top face down | second Surge mark, same trick |
-| DSLR Platform | 190 x 124 x 15 | plate down | wheel cavity bridges 31 mm, no supports |
-| DSLR Legs x2 | 18 x 36 x 88 | foot down | |
-| DSLR Thumbwheel | 30 dia x 7 | flat | hex pocket down |
+There are 12 printed pieces. Print each one with the orientation in the table, using the file in `stl/`.
 
-Total ~705 cm3 solid.
+| Part | File | Qty | Size (mm) | Orientation | Notes |
+|---|---|---|---|---|---|
+| Base | `Base.stl` | 1 | 232 x 202 x 15 | ribs down (floor up) | 3 mm floor bridges between ribs (max span ~74 mm) |
+| Side panels | `Side_L.stl`, `Side_R.stl` | 1 each | 232 x 171 x 3 | flat | countersinks face up |
+| Bezel (screen frame + tower top) | `Bezel.stl` | 1 | 202 x 162 x 73 | front face on the bed | tree supports under the 4 display struts and the tower-top bosses |
+| Deck (printer lid) | `Deck.stl` | 1 | 202 x 157 x 11 | top face down, lips up | |
+| Rear wall | `Rear_Wall.stl` | 1 | 202 x 88 x 11 | outer face down | |
+| Back door | `Back_Door.stl` | 1 | 203 x 74 x 5 | outer face down | Surge mark debossed 0.8 mm into the first layers (swap filament for a 2-colour logo) |
+| Hatch | `Hatch.stl` | 1 | 109 x 73 x 3 | top face down | second Surge mark, same trick |
+| DSLR platform | `DSLR_Platform.stl` | 1 | 190 x 124 x 15 | plate down | wheel cavity bridges 31 mm, no supports |
+| DSLR legs | `DSLR_Leg_R.stl`, `DSLR_Leg_L.stl` | 1 each | 18 x 36 x 88 | foot down | mirror images, so print one of each |
+| DSLR thumbwheel | `DSLR_Thumbwheel.stl` | 1 | 30 dia x 7 | flat | hex pocket down |
+
+Total ~705 cm3 of solid plastic.
 
 ## Hardware
 
@@ -55,6 +60,8 @@ Total ~705 cm3 solid.
 - Optional: stick-on rubber feet on the base ribs.
 
 ## Assembly
+
+Work through these in order. The part names match the files in `stl/`.
 
 1. Press all inserts (base edges, bezel, deck lips + leg bosses, rear-wall lips, leg tops).
 2. Hold the **bezel** face-up and lower the display module (Pi already on it) in **from the front** until its four
@@ -86,7 +93,9 @@ Total ~705 cm3 solid.
 Leave ~15 cm clear on the left for the paper shuttle and room on the right for the cassette and prints.
 The DSLR's tripod socket sits at Y 125 (just behind mid-depth), so its lens front lands about over the front edge of the base.
 
-## Estimates to check against the real CP910 (all in params.py / step files)
+## Estimates to check against the real CP910
+
+These values are estimates in the design. Check them against the real printer before printing a second set.
 
 | What | Current value | Where |
 |---|---|---|
@@ -96,8 +105,6 @@ The DSLR's tripod socket sits at Y 125 (just behind mid-depth), so its lens fron
 | Mini-USB port | assumed on the display-facing side near the rear | pocket Y 22-46 |
 | Power button / LCD | hatch opening X -50..22, Y 95..205 (the front part sits under the DSLR platform, ~88 mm of hand room) | `HATCH` |
 
-## Regenerating
+## Source
 
-The STEP and F3D files were exported from the Fusion 360 document **Photobooth / Selphy Display Box V1** (its latest
-version), and the STL files come from the same model. The Python scripts that generated the model in Fusion are not in
-this repository yet. They hard-code a local path, so they need cleaning before they can be shared.
+The STEP, F3D and STL files were exported from the Fusion 360 document **Photobooth / Selphy Display Box V1** (its latest version). The Python scripts that generated the model in Fusion are not in this repository yet. They hard-code a local path, so they need cleaning before they can be shared.
