@@ -182,7 +182,7 @@ Hardware, from the post-event list: an adjustable camera mount, an enclosure ope
 
 ## Credits
 
-- Illustrations, logos and brand assets by the StormHacks 2026 design team. The brand guide notes and reference artwork in `design/` and `public/brand/` came from their design system.
-- The 1Password mark on the sponsor frame belongs to 1Password.
+- Illustrations, logos and brand assets by the StormHacks 2026 design team. The brand guide notes and reference artwork in `design/` and `public/brand/` came from their design system (Shoutout Keyaan Vegedani).
+- Original Photobooth web app design and verification by Brendan Shen
 - Typefaces: Fraunces and Inter, both under the SIL Open Font License (license files in `app/fonts/`).
 - Built on open-source software including Next.js, React, CUPS, Gutenprint, gphoto2, FFmpeg, v4l2loopback, nfc-pcsc and qrcode.
