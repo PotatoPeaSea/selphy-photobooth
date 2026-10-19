@@ -4,9 +4,31 @@ A touch-screen photo booth for a hackathon. A Canon DSLR feeds live view to a Ra
 
 **120 parties · ~200 prints · StormHacks 2026**
 
-<!-- CAD-RENDERS: enclosure renders go here -->
+<p align="center">
+  <img src="cad/selphy-display-box/renders/full-assembly-front-right.png" alt="Full v7 assembly with the enclosure, display, camera and printer, front right" width="440">
+  <img src="cad/selphy-display-box/renders/full-assembly-rear-left.png" alt="Full v7 assembly with the enclosure, display, camera and printer, rear left" width="440">
+</p>
+
+<p align="center"><sub>The v7 assembly from its Fusion 360 model: the printed enclosure with the display, camera and printer it houses. The files are in <a href="cad/selphy-display-box/">cad/selphy-display-box/</a>.</sub></p>
 
 This repository is the booth software and device setup as it ran at StormHacks 2026. It is a solo build: software, touch UI, print rendering, hardware integration and the printer and display enclosure. Illustrations and brand assets came from the StormHacks 2026 design team (see [Credits](#credits)).
+
+## Sample frames
+
+Each print uses one of eight frames, and each frame has a Two Strips layout and a Full Frame layout. These samples show Stormy and Sparky. The photos are stand-ins, not guests, and the renders are in [design/frames/](design/frames/).
+
+| Frame | Two Strips | Full Frame |
+| --- | --- | --- |
+| **Stormy** | <img src="design/frames/strip-stormy.png" alt="Stormy frame, Two Strips" width="140"> | <img src="design/frames/grid-stormy.png" alt="Stormy frame, Full Frame" width="210"> |
+| **Sparky** | <img src="design/frames/strip-sparky.png" alt="Sparky frame, Two Strips" width="140"> | <img src="design/frames/grid-sparky.png" alt="Sparky frame, Full Frame" width="210"> |
+
+## Design references
+
+Illustrations and post designs from the StormHacks 2026 design system. The frame art is cut from the same illustrations (see `public/brand/`).
+
+| Landing scene | Loops post | Code matrix post |
+| --- | --- | --- |
+| <img src="design/examples/illustration-landing-scene.png" alt="Landing scene illustration" width="260"> | <img src="design/examples/dynamic-loops-post-1.png" alt="Post with the otter framed by curly-brace loops" width="260"> | <img src="design/examples/code-matrices-post.png" alt="Code matrix post" width="260"> |
 
 ## What it does
 
@@ -35,7 +57,11 @@ These were written after the event, in response to what went wrong at it. They a
 | NFC reader (PC/SC) | Reads badge taps. The code targets an ACR122U-style PICC reader and drives its LED for accept and reject feedback. |
 | Canon SELPHY CP910 / CP1300 | 4×6″ dye-sublimation printers, driven by CUPS and Gutenprint over USB. |
 | Touch display | Kiosk screen. Layouts target 1024×600 and 1280×800 landscape displays. |
-| 3D-printed enclosure | Printer and display housing, designed in Fusion 360 over four printed iterations. |
+| 3D-printed enclosure | Printer and display housing, designed in Fusion 360 over four printed iterations. Printable files are in [cad/](cad/selphy-display-box/). |
+
+### Enclosure
+
+The enclosure is the Selphy Display Box, v7 (the latest version of the design). [cad/selphy-display-box/](cad/selphy-display-box/) holds the printable STL files (12 pieces, including both DSLR legs), STEP files for other CAD tools, and Fusion 360 archives of each part and of the full assembly, which includes the reference models for the display, Pi, camera and printer. Its [README](cad/selphy-display-box/README.md) has the printing table, the hardware list and the assembly steps. It is 208 × 232 × 171 mm overall, and every part fits a 256 mm print bed.
 
 ## Architecture
 
@@ -99,7 +125,8 @@ print-server/        Express wrapper around CUPS and nmcli: printer state, print
 print-server/test/   Node tests, with fake CUPS and nmcli commands in test/fakes/
 deploy/pi/           systemd units, webcam feed script, kiosk launcher, Back to Booth launcher, udev/polkit rules, v4l2loopback config
 docs/                Gallery API, post-event issue list, next issues, redesign plan
-design/              Brand guide notes and reference artwork
+design/              Brand guide notes, reference artwork and sample frame renders
+cad/                 Enclosure CAD for the Selphy Display Box (v7): STL, STEP and Fusion files, renders, and the printing and assembly guide
 public/brand/        Illustrations, logos and the sponsor mark used on frames
 scripts/brand/       Generates lib/brand/shapes.ts from the brand SVGs
 instrumentation.ts   Starts the badge reader when the Next.js server boots
