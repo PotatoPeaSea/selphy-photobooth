@@ -12,10 +12,10 @@ Overall: **208 W x 232 D x 171 H mm**. The DSLR platform adds 15 mm on top. Wall
 |---|---|---|
 | `stl/` | 12 printable STL files, one per printed piece. The legs are two files: `DSLR_Leg_R.stl` and `DSLR_Leg_L.stl`, which are mirror images. | Printing (open in any slicer) |
 | `step/` | 11 STEP files, one per part. `DSLR_Legs.step` holds both legs. | Other CAD tools |
-| `fusion/` | Fusion 360 archives: one per part, plus `Selphy_Display_Box_V1_assembly.f3d`, the whole enclosure assembly with all 11 parts in their design positions. | Opening and editing in Fusion 360 |
-| `renders/` | Renders of the assembly. | Reference |
+| `fusion/` | Fusion 360 archives: one per part, plus `Selphy_Display_Box_V1_full_assembly.f3d`, the full assembly. The full assembly has the 11 enclosure parts in their design positions, together with the reference models the enclosure is built around (the display, the Pi, the camera and the printer). | Opening and editing in Fusion 360 |
+| `renders/` | `assembly-*.png` show the enclosure, and `full-assembly-*.png` show the full assembly with the reference models. | Reference |
 
-The Fusion 360 document is **Photobooth / Selphy Display Box V1**, and these files are from its latest version (v7, see below). The assembly archive contains the enclosure parts only. The document also has reference models for the display, the Pi, the camera and the printer, which the enclosure is designed around. They are not included because they are third-party models.
+The Fusion 360 document is **Photobooth / Selphy Display Box V1**, and these files are from its latest version (v7, see below). The reference models are for fit checks only. They are not printed.
 
 Versions (Fusion / git):
 - v5 = **baseline** (git tag `baseline`)
